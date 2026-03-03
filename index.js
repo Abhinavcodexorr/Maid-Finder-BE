@@ -19,7 +19,7 @@ app.use(helmet());
 
 const allowedOrigins = [
   "http://localhost:3000",
-  "http://65.1.116.194",
+  "http://65.1.116.194:5000",
 ];
 
 app.use(
