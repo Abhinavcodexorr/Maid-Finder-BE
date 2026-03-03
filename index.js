@@ -17,12 +17,23 @@ const app = express();
 // Security
 app.use(helmet());
 
-// CORS
-const corsOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
-  : ['*'];
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://65.1.116.194",
+];
 
-app.use(cors({ origin: corsOrigins }));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS not allowed"));
+      }
+    },
+    credentials: true,
+  })
+);
 
 // Rate limiting
 app.use(
