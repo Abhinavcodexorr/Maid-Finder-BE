@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const { VISA_STATUS } = require('../config/constants');
+const { VISA_STATUS, MARITAL_STATUS } = require('../config/constants');
 
 const maidSchema = new mongoose.Schema(
   {
@@ -63,6 +63,76 @@ const maidSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    maritalStatus: {
+      type: String,
+      trim: true,
+      enum: MARITAL_STATUS,
+    },
+    religion: {
+      type: String,
+      trim: true,
+    },
+    hasPassport: {
+      type: Boolean,
+      default: false,
+    },
+    visaExpiryDate: {
+      type: Date,
+    },
+    availability: {
+      type: String,
+      trim: true,
+      maxlength: [200, 'Availability cannot exceed 200 characters'],
+    },
+    preferredJob: {
+      type: String,
+      trim: true,
+    },
+    duration: {
+      type: String,
+      trim: true,
+    },
+    languages: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    education: {
+      type: String,
+      trim: true,
+      maxlength: [200, 'Education cannot exceed 200 characters'],
+    },
+    certificate: {
+      type: String,
+      trim: true,
+      maxlength: [500, 'Certificate cannot exceed 500 characters'],
+    },
+    lastWorkingExperience: {
+      jobTitle: { type: String, trim: true },
+      duration: { type: String, trim: true },
+      workingCity: { type: String, trim: true },
+      reasonForLeaving: { type: String, trim: true },
+      familySize: { type: String, trim: true },
+      salary: { type: Number, min: [0, 'Salary cannot be negative'] },
+      employerNationality: { type: String, trim: true },
+    },
+    jobDescription: {
+      type: String,
+      maxlength: [2000, 'Job description cannot exceed 2000 characters'],
+    },
+    hasReferenceLetter: {
+      type: Boolean,
+      default: false,
+    },
+    referenceLetterUrl: {
+      type: String,
+      trim: true,
+    },
+    profileComplete: {
+      type: Boolean,
+      default: false,
     },
   },
   {

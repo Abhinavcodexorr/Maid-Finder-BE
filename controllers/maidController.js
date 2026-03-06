@@ -121,21 +121,41 @@ exports.getMaidById = async (req, res, next) => {
   }
 };
 
+const ALLOWED_PROFILE_FIELDS = [
+  'fullName', 'nationality', 'emirate', 'visaStatus', 'experienceYears',
+  'monthlySalaryAed', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
+  'maritalStatus', 'religion', 'hasPassport', 'visaExpiryDate', 'availability',
+  'preferredJob', 'duration', 'languages', 'education', 'certificate',
+  'lastWorkingExperience', 'jobDescription', 'hasReferenceLetter', 'referenceLetterUrl',
+  'profileComplete',
+];
+
+exports.updateMyProfile = async (req, res, next) => {
+  try {
+    const maid = req.maid;
+    ALLOWED_PROFILE_FIELDS.forEach((key) => {
+      if (req.body[key] !== undefined) maid[key] = req.body[key];
+    });
+    if (req.body.password) maid.password = req.body.password;
+    await maid.save();
+    res.json({ success: true, maid });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.updateMaid = async (req, res, next) => {
   try {
     if (req.maid._id.toString() !== req.params.id) {
       return res.status(403).json({ success: false, message: 'Not authorized to update this maid' });
     }
-    const allowed = [
-      'fullName', 'nationality', 'emirate', 'visaStatus', 'experienceYears',
-      'monthlySalaryAed', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio'
-    ];
-    allowed.forEach((key) => {
-      if (req.body[key] !== undefined) req.maid[key] = req.body[key];
+    const maid = req.maid;
+    ALLOWED_PROFILE_FIELDS.forEach((key) => {
+      if (req.body[key] !== undefined) maid[key] = req.body[key];
     });
-    if (req.body.password) req.maid.password = req.body.password;
-    await req.maid.save();
-    res.json({ success: true, maid: req.maid });
+    if (req.body.password) maid.password = req.body.password;
+    await maid.save();
+    res.json({ success: true, maid });
   } catch (error) {
     next(error);
   }
