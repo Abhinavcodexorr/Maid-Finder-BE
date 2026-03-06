@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const { VISA_STATUS, MARITAL_STATUS } = require('../config/constants');
+const { MARITAL_STATUS } = require('../config/constants');
 
 const maidSchema = new mongoose.Schema(
   {
@@ -29,7 +29,7 @@ const maidSchema = new mongoose.Schema(
     },
     visaStatus: {
       type: String,
-      enum: VISA_STATUS,
+      trim: true,
     },
     experienceYears: {
       type: Number,
