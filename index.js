@@ -19,7 +19,7 @@ app.use(helmet());
 
 const allowedOrigins = [
   "http://localhost:3000",
-  "http://localhost:3000",
+  "http://localhost:4200",
   "http://65.1.116.194:5000",
   "http://65.1.116.194",
   "https://maid-finder-kvrx.vercel.app"
