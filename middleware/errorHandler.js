@@ -25,6 +25,11 @@ const errorHandler = (err, req, res, next) => {
     error.statusCode = 401;
   }
 
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    error.message = 'Image size must be less than 5MB';
+    error.statusCode = 400;
+  }
+
   const statusCode = error.statusCode || err.statusCode || 500;
   res.status(statusCode).json({
     success: false,
