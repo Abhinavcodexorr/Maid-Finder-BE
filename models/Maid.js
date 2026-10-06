@@ -19,7 +19,32 @@ const maidSchema = new mongoose.Schema(
       trim: true,
       maxlength: [100, 'Full name cannot exceed 100 characters'],
     },
+    gender: {
+      type: String,
+      trim: true,
+      enum: ['Male', 'Female'],
+    },
     nationality: {
+      type: String,
+      trim: true,
+    },
+    categoryId: {
+      type: String,
+      trim: true,
+    },
+    area: {
+      type: String,
+      trim: true,
+    },
+    city: {
+      type: String,
+      trim: true,
+    },
+    mobileNumber: {
+      type: String,
+      trim: true,
+    },
+    whatsappNumber: {
       type: String,
       trim: true,
     },
@@ -134,6 +159,16 @@ const maidSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    kyc: {
+      idType: { type: String, trim: true },
+      idNumber: { type: String, trim: true },
+      idDocumentUrl: { type: String, trim: true },
+    },
+    applicationStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+    },
   },
   {
     timestamps: true,
@@ -158,5 +193,8 @@ maidSchema.methods.comparePassword = async function (candidatePassword) {
 maidSchema.index({ emirate: 1 });
 maidSchema.index({ skills: 1 });
 maidSchema.index({ monthlySalaryAed: 1 });
+maidSchema.index({ categoryId: 1 });
+maidSchema.index({ area: 1 });
+maidSchema.index({ applicationStatus: 1 });
 
 module.exports = mongoose.model('Maid', maidSchema);

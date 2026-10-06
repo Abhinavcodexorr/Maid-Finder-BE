@@ -1,64 +1,99 @@
 const Maid = require('../models/Maid');
 const generateToken = require('../utils/jwt');
+const { uploadBufferToS3 } = require('../utils/s3Upload');
+
+const serializeMaid = (maid) => ({
+  id: maid._id,
+  email: maid.email,
+  fullName: maid.fullName,
+  gender: maid.gender,
+  nationality: maid.nationality,
+  categoryId: maid.categoryId,
+  area: maid.area,
+  city: maid.city,
+  mobileNumber: maid.mobileNumber,
+  whatsappNumber: maid.whatsappNumber,
+  emirate: maid.emirate,
+  visaStatus: maid.visaStatus,
+  experienceYears: maid.experienceYears,
+  monthlySalaryAed: maid.monthlySalaryAed,
+  skills: maid.skills,
+  imageUrl: maid.imageUrl,
+  phone: maid.phone,
+  whatsapp: maid.whatsapp,
+  bio: maid.bio,
+  kyc: maid.kyc && {
+    idType: maid.kyc.idType,
+    idDocumentUrl: maid.kyc.idDocumentUrl,
+  },
+  applicationStatus: maid.applicationStatus,
+});
 
 exports.register = async (req, res, next) => {
   try {
     const {
+      fullName,
+      gender,
+      nationality,
+      categoryId,
+      area,
+      city,
+      mobileNumber,
+      whatsappNumber,
       email,
       password,
-      fullName,
-      nationality,
-      emirate,
-      visaStatus,
-      experienceYears,
-      monthlySalaryAed,
-      skills,
-      imageUrl,
-      phone,
-      whatsapp,
-      bio,
+      idType,
+      idNumber,
     } = req.body;
+
+    if (!fullName || !email || !password) {
+      return res.status(400).json({ success: false, message: 'fullName, email and password are required' });
+    }
+
+    const photoFile = req.files?.photo?.[0];
+    const idDocumentFile = req.files?.idDocument?.[0];
+    if (!photoFile) {
+      return res.status(400).json({ success: false, message: 'A photo of yourself is required' });
+    }
+    if (!idDocumentFile) {
+      return res.status(400).json({ success: false, message: 'An ID document is required' });
+    }
 
     const existingMaid = await Maid.findOne({ email });
     if (existingMaid) {
       return res.status(400).json({ success: false, message: 'Email already registered' });
     }
 
+    const [imageUrl, idDocumentUrl] = await Promise.all([
+      uploadBufferToS3(photoFile.buffer, photoFile.mimetype, 'maid-finder/photos'),
+      uploadBufferToS3(idDocumentFile.buffer, idDocumentFile.mimetype, 'maid-finder/kyc'),
+    ]);
+
     const maid = await Maid.create({
       email,
       password,
       fullName,
+      gender,
       nationality,
-      emirate,
-      visaStatus,
-      experienceYears,
-      monthlySalaryAed,
-      skills: skills || [],
+      categoryId,
+      area,
+      city,
+      mobileNumber,
+      whatsappNumber,
       imageUrl,
-      phone,
-      whatsapp,
-      bio,
+      kyc: {
+        idType,
+        idNumber,
+        idDocumentUrl,
+      },
+      applicationStatus: 'pending',
     });
 
     const token = generateToken(maid._id, 'maid');
     res.status(201).json({
       success: true,
       token,
-      maid: {
-        id: maid._id,
-        email: maid.email,
-        fullName: maid.fullName,
-        nationality: maid.nationality,
-        emirate: maid.emirate,
-        visaStatus: maid.visaStatus,
-        experienceYears: maid.experienceYears,
-        monthlySalaryAed: maid.monthlySalaryAed,
-        skills: maid.skills,
-        imageUrl: maid.imageUrl,
-        phone: maid.phone,
-        whatsapp: maid.whatsapp,
-        bio: maid.bio,
-      },
+      maid: serializeMaid(maid),
     });
   } catch (error) {
     next(error);
@@ -80,21 +115,7 @@ exports.login = async (req, res, next) => {
     res.json({
       success: true,
       token,
-      maid: {
-        id: maid._id,
-        email: maid.email,
-        fullName: maid.fullName,
-        nationality: maid.nationality,
-        emirate: maid.emirate,
-        visaStatus: maid.visaStatus,
-        experienceYears: maid.experienceYears,
-        monthlySalaryAed: maid.monthlySalaryAed,
-        skills: maid.skills,
-        imageUrl: maid.imageUrl,
-        phone: maid.phone,
-        whatsapp: maid.whatsapp,
-        bio: maid.bio,
-      },
+      maid: serializeMaid(maid),
     });
   } catch (error) {
     next(error);
@@ -111,7 +132,7 @@ exports.getMe = async (req, res, next) => {
 
 exports.getMaidById = async (req, res, next) => {
   try {
-    const maid = await Maid.findById(req.params.id);
+    const maid = await Maid.findById(req.params.id).select('-kyc.idNumber');
     if (!maid) {
       return res.status(404).json({ success: false, message: 'Maid not found' });
     }
@@ -122,7 +143,8 @@ exports.getMaidById = async (req, res, next) => {
 };
 
 const ALLOWED_PROFILE_FIELDS = [
-  'fullName', 'nationality', 'emirate', 'visaStatus', 'experienceYears',
+  'fullName', 'gender', 'nationality', 'categoryId', 'area', 'city',
+  'mobileNumber', 'whatsappNumber', 'emirate', 'visaStatus', 'experienceYears',
   'monthlySalaryAed', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
   'maritalStatus', 'religion', 'hasPassport', 'visaExpiryDate', 'availability',
   'preferredJob', 'duration', 'languages', 'education', 'certificate',
@@ -179,6 +201,7 @@ exports.listMaids = async (req, res, next) => {
 
     const skip = (Number(page) - 1) * Number(limit);
     const maids = await Maid.find(query)
+      .select('-kyc.idNumber')
       .skip(skip)
       .limit(Number(limit))
       .sort({ createdAt: -1 });
