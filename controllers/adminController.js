@@ -84,3 +84,50 @@ exports.rejectMaid = async (req, res, next) => {
     next(error);
   }
 };
+
+const EDITABLE_FIELDS = [
+  'fullName',
+  'gender',
+  'nationality',
+  'categoryId',
+  'area',
+  'city',
+  'mobileNumber',
+  'whatsappNumber',
+  'email',
+  'experienceYears',
+];
+
+exports.updateMaid = async (req, res, next) => {
+  try {
+    const maid = await Maid.findById(req.params.id);
+    if (!maid) {
+      return res.status(404).json({ success: false, message: 'Maid not found' });
+    }
+
+    for (const field of EDITABLE_FIELDS) {
+      if (req.body[field] !== undefined) maid[field] = req.body[field];
+    }
+    if (req.body.kyc && typeof req.body.kyc === 'object') {
+      if (req.body.kyc.idType !== undefined) maid.kyc.idType = req.body.kyc.idType;
+      if (req.body.kyc.idNumber !== undefined) maid.kyc.idNumber = req.body.kyc.idNumber;
+    }
+
+    await maid.save();
+    res.json({ success: true, data: serializeMaidForAdmin(maid) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteMaid = async (req, res, next) => {
+  try {
+    const maid = await Maid.findByIdAndDelete(req.params.id);
+    if (!maid) {
+      return res.status(404).json({ success: false, message: 'Maid not found' });
+    }
+    res.json({ success: true, data: { id: req.params.id } });
+  } catch (error) {
+    next(error);
+  }
+};
