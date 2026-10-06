@@ -1,5 +1,4 @@
-const { PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { PutObjectCommand } = require('@aws-sdk/client-s3');
 const { v4: uuidv4 } = require('uuid');
 const { s3Client } = require('../config/s3');
 
@@ -33,25 +32,4 @@ const uploadBufferToS3 = async (buffer, mimetype, folder) => {
   return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
 };
 
-// Extracts the S3 object key from a stored full URL (works for the
-// virtual-hosted-style URLs uploadBufferToS3 produces).
-const keyFromPublicUrl = (url) => {
-  if (!url) return null;
-  try {
-    return decodeURIComponent(new URL(url).pathname.replace(/^\//, ''));
-  } catch {
-    return null;
-  }
-};
-
-// The bucket is private, so admin/API responses must hand out short-lived
-// signed links rather than the permanent public-style URL that gets stored.
-const presignUrl = async (storedUrl, expiresInSeconds = 3600) => {
-  const key = keyFromPublicUrl(storedUrl);
-  if (!key) return storedUrl;
-  const bucket = process.env.AWS_S3_BUCKET;
-  const command = new GetObjectCommand({ Bucket: bucket, Key: key });
-  return getSignedUrl(s3Client, command, { expiresIn: expiresInSeconds });
-};
-
-module.exports = { uploadBufferToS3, presignUrl };
+module.exports = { uploadBufferToS3 };

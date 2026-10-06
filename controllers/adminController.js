@@ -1,34 +1,24 @@
 const Maid = require('../models/Maid');
-const { presignUrl } = require('../utils/s3Upload');
 
-const serializeMaidForAdmin = async (maid) => {
-  const [imageUrl, idDocumentUrl] = await Promise.all([
-    presignUrl(maid.imageUrl),
-    presignUrl(maid.kyc?.idDocumentUrl),
-  ]);
-
-  return {
-    id: maid._id,
-    email: maid.email,
-    fullName: maid.fullName,
-    gender: maid.gender,
-    nationality: maid.nationality,
-    categoryId: maid.categoryId,
-    area: maid.area,
-    city: maid.city,
-    mobileNumber: maid.mobileNumber,
-    whatsappNumber: maid.whatsappNumber,
-    experienceYears: maid.experienceYears,
-    imageUrl,
-    kyc: maid.kyc
-      ? { idType: maid.kyc.idType, idNumber: maid.kyc.idNumber, idDocumentUrl }
-      : maid.kyc,
-    applicationStatus: maid.applicationStatus,
-    rejectionReason: maid.rejectionReason,
-    isActive: maid.isActive,
-    createdAt: maid.createdAt,
-  };
-};
+const serializeMaidForAdmin = (maid) => ({
+  id: maid._id,
+  email: maid.email,
+  fullName: maid.fullName,
+  gender: maid.gender,
+  nationality: maid.nationality,
+  categoryId: maid.categoryId,
+  area: maid.area,
+  city: maid.city,
+  mobileNumber: maid.mobileNumber,
+  whatsappNumber: maid.whatsappNumber,
+  experienceYears: maid.experienceYears,
+  imageUrl: maid.imageUrl,
+  kyc: maid.kyc,
+  applicationStatus: maid.applicationStatus,
+  rejectionReason: maid.rejectionReason,
+  isActive: maid.isActive,
+  createdAt: maid.createdAt,
+});
 
 exports.listMaids = async (req, res, next) => {
   try {
@@ -54,7 +44,7 @@ exports.listMaids = async (req, res, next) => {
       total,
       page: Number(page),
       pages: Math.ceil(total / Number(limit)),
-      data: await Promise.all(maids.map(serializeMaidForAdmin)),
+      data: maids.map(serializeMaidForAdmin),
     });
   } catch (error) {
     next(error);
@@ -70,7 +60,7 @@ exports.approveMaid = async (req, res, next) => {
     maid.applicationStatus = 'approved';
     maid.rejectionReason = undefined;
     await maid.save();
-    res.json({ success: true, data: await serializeMaidForAdmin(maid) });
+    res.json({ success: true, data: serializeMaidForAdmin(maid) });
   } catch (error) {
     next(error);
   }
@@ -89,7 +79,7 @@ exports.rejectMaid = async (req, res, next) => {
     maid.applicationStatus = 'rejected';
     maid.rejectionReason = reason.trim();
     await maid.save();
-    res.json({ success: true, data: await serializeMaidForAdmin(maid) });
+    res.json({ success: true, data: serializeMaidForAdmin(maid) });
   } catch (error) {
     next(error);
   }
