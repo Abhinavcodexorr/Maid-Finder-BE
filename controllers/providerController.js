@@ -164,7 +164,7 @@ exports.getMe = async (req, res, next) => {
 
 exports.getProviderById = async (req, res, next) => {
   try {
-    const provider = await Provider.findById(req.params.id).select('-kyc.idNumber');
+    const provider = await Provider.findById(req.params.id).select('-kyc.idNumber -mobileNumberDigits');
     if (!provider) {
       return res.status(404).json({ success: false, message: MESSAGES.provider.notFound });
     }
@@ -233,7 +233,7 @@ exports.listProviders = async (req, res, next) => {
 
     const skip = (Number(page) - 1) * Number(limit);
     const providers = await Provider.find(query)
-      .select('-kyc.idNumber')
+      .select('-kyc.idNumber -mobileNumberDigits')
       .skip(skip)
       .limit(Number(limit))
       .sort({ createdAt: -1 });
