@@ -1,5 +1,6 @@
 const Provider = require('../models/Provider');
 const MESSAGES = require('../config/errorMessages.json');
+const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
 
 // Admin is a trusted, internal-only view, so this returns the full provider
 // document (unlike the public listMaids/getProviderById in providerController,
@@ -16,7 +17,10 @@ exports.listProviders = async (req, res, next) => {
     const query = {};
 
     if (status && status !== 'all') query.applicationStatus = status;
-    if (categoryId) query.categoryId = categoryId;
+    if (categoryId) {
+      const categoryArr = normalizeCategoryIds(categoryId);
+      if (categoryArr.length) query.categoryIds = { $in: categoryArr };
+    }
     if (q && q.trim()) {
       const regex = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       query.$or = [{ fullName: regex }, { email: regex }, { city: regex }, { 'kyc.idNumber': regex }];
@@ -79,7 +83,6 @@ const EDITABLE_FIELDS = [
   'fullName',
   'gender',
   'nationality',
-  'categoryId',
   'area',
   'city',
   'mobileNumber',
@@ -95,6 +98,9 @@ exports.updateProvider = async (req, res, next) => {
       return res.status(404).json({ success: false, message: MESSAGES.admin.providerNotFound });
     }
 
+    if (req.body.categoryIds !== undefined) {
+      provider.categoryIds = normalizeCategoryIds(req.body.categoryIds);
+    }
     for (const field of EDITABLE_FIELDS) {
       if (req.body[field] !== undefined) provider[field] = req.body[field];
     }

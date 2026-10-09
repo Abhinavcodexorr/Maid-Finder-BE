@@ -28,9 +28,12 @@ const providerSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    categoryId: {
-      type: String,
-      trim: true,
+    // A provider can offer more than one service (e.g. both Babysitter and
+    // Maid), so this is an array even though the registration form today
+    // only lets someone pick one at signup time.
+    categoryIds: {
+      type: [String],
+      default: [],
     },
     area: {
       type: String,
@@ -223,7 +226,7 @@ providerSchema.methods.comparePassword = async function (candidatePassword) {
 providerSchema.index({ emirate: 1 });
 providerSchema.index({ skills: 1 });
 providerSchema.index({ monthlySalary: 1 });
-providerSchema.index({ categoryId: 1 });
+providerSchema.index({ categoryIds: 1 });
 providerSchema.index({ area: 1 });
 providerSchema.index({ applicationStatus: 1 });
 

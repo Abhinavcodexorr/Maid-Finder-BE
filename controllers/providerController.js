@@ -2,6 +2,7 @@ const Provider = require('../models/Provider');
 const generateToken = require('../utils/jwt');
 const { uploadBufferToS3 } = require('../utils/s3Upload');
 const MESSAGES = require('../config/errorMessages.json');
+const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
 
 const serializeProvider = (provider) => ({
   id: provider._id,
@@ -9,7 +10,7 @@ const serializeProvider = (provider) => ({
   fullName: provider.fullName,
   gender: provider.gender,
   nationality: provider.nationality,
-  categoryId: provider.categoryId,
+  categoryIds: provider.categoryIds,
   area: provider.area,
   city: provider.city,
   mobileNumber: provider.mobileNumber,
@@ -36,7 +37,7 @@ exports.register = async (req, res, next) => {
       fullName,
       gender,
       nationality,
-      categoryId,
+      categoryIds,
       area,
       city,
       mobileNumber,
@@ -76,7 +77,7 @@ exports.register = async (req, res, next) => {
       fullName,
       gender,
       nationality,
-      categoryId,
+      categoryIds: normalizeCategoryIds(categoryIds),
       area,
       city,
       mobileNumber,
@@ -175,7 +176,7 @@ exports.getProviderById = async (req, res, next) => {
 };
 
 const ALLOWED_PROFILE_FIELDS = [
-  'fullName', 'gender', 'nationality', 'categoryId', 'area', 'city',
+  'fullName', 'gender', 'nationality', 'categoryIds', 'area', 'city',
   'mobileNumber', 'whatsappNumber', 'emirate', 'visaStatus', 'experienceYears',
   'monthlySalary', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
   'age', 'panNumber', 'maritalStatus', 'religion', 'hasPassport', 'visaExpiryDate', 'availability',
@@ -184,12 +185,19 @@ const ALLOWED_PROFILE_FIELDS = [
   'profileComplete',
 ];
 
+// categoryIds needs its comma-string-or-array normalization applied even
+// through the generic field list, so it can't just be assigned as-is.
+const applyAllowedFields = (provider, body) => {
+  ALLOWED_PROFILE_FIELDS.forEach((key) => {
+    if (body[key] === undefined) return;
+    provider[key] = key === 'categoryIds' ? normalizeCategoryIds(body[key]) : body[key];
+  });
+};
+
 exports.updateMyProfile = async (req, res, next) => {
   try {
     const provider = req.provider;
-    ALLOWED_PROFILE_FIELDS.forEach((key) => {
-      if (req.body[key] !== undefined) provider[key] = req.body[key];
-    });
+    applyAllowedFields(provider, req.body);
     if (req.body.password) provider.password = req.body.password;
     await provider.save();
     res.json({ success: true, provider: serializeProviderFull(provider) });
@@ -204,7 +212,7 @@ exports.updateMyProfile = async (req, res, next) => {
 // ---------------------------------------------------------------------
 
 const WORK_PREFERENCES_FIELDS = [
-  'experienceYears', 'monthlySalary', 'categoryId', 'duration', 'languages', 'skills', 'education',
+  'experienceYears', 'monthlySalary', 'duration', 'languages', 'skills', 'education',
 ];
 
 const LAST_JOB_FIELDS = [
@@ -252,6 +260,9 @@ exports.completeProfile = async (req, res, next) => {
     if (generalInfo.idType !== undefined) provider.kyc.idType = generalInfo.idType;
     if (generalInfo.idNumber !== undefined) provider.kyc.idNumber = generalInfo.idNumber;
 
+    if (workPreferences.categoryIds !== undefined) {
+      provider.categoryIds = normalizeCategoryIds(workPreferences.categoryIds);
+    }
     WORK_PREFERENCES_FIELDS.forEach((key) => {
       if (workPreferences[key] !== undefined) provider[key] = workPreferences[key];
     });
@@ -284,9 +295,7 @@ exports.updateProvider = async (req, res, next) => {
       return res.status(403).json({ success: false, message: MESSAGES.provider.notAuthorizedToUpdate });
     }
     const provider = req.provider;
-    ALLOWED_PROFILE_FIELDS.forEach((key) => {
-      if (req.body[key] !== undefined) provider[key] = req.body[key];
-    });
+    applyAllowedFields(provider, req.body);
     if (req.body.password) provider.password = req.body.password;
     await provider.save();
     res.json({ success: true, provider: serializeProviderFull(provider) });
@@ -297,10 +306,14 @@ exports.updateProvider = async (req, res, next) => {
 
 exports.listProviders = async (req, res, next) => {
   try {
-    const { emirate, minSalary, maxSalary, skills, page = 1, limit = 10 } = req.query;
+    const { emirate, categoryId, minSalary, maxSalary, skills, page = 1, limit = 10 } = req.query;
     const query = { isActive: { $ne: false } };
 
     if (emirate) query.emirate = new RegExp(emirate, 'i');
+    if (categoryId) {
+      const categoryArr = normalizeCategoryIds(categoryId);
+      if (categoryArr.length) query.categoryIds = { $in: categoryArr };
+    }
     if (skills) {
       const skillArr = skills.split(',').map((s) => s.trim()).filter(Boolean);
       if (skillArr.length) query.skills = { $in: skillArr };
