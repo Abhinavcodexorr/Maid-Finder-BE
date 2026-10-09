@@ -74,7 +74,7 @@ function startServer(port, maxAttempts = 5) {
   }
 
   const server = app.listen(port, () => {
-    console.log(`Maid Finder API running on port ${port} (${process.env.NODE_ENV || 'development'})`);
+    console.log(`Help Zone API running on port ${port} (${process.env.NODE_ENV || 'development'})`);
   });
 
   server.on('error', (err) => {

@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { MARITAL_STATUS } = require('../config/constants');
 
-const maidSchema = new mongoose.Schema(
+const providerSchema = new mongoose.Schema(
   {
     email: {
       type: String,
@@ -43,6 +43,13 @@ const maidSchema = new mongoose.Schema(
     mobileNumber: {
       type: String,
       trim: true,
+    },
+    // Digits-only copy of mobileNumber, kept in sync in the pre-save hook
+    // below, so phone login works regardless of spaces/dashes/country-code
+    // formatting differences between registration and login.
+    mobileNumberDigits: {
+      type: String,
+      index: true,
     },
     whatsappNumber: {
       type: String,
@@ -182,7 +189,7 @@ const maidSchema = new mongoose.Schema(
   }
 );
 
-maidSchema.pre('save', async function (next) {
+providerSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   if (this.password) {
     this.password = await bcrypt.hash(this.password, 12);
@@ -190,16 +197,27 @@ maidSchema.pre('save', async function (next) {
   next();
 });
 
-maidSchema.methods.comparePassword = async function (candidatePassword) {
+providerSchema.pre('save', function (next) {
+  if (this.isModified('mobileNumber')) {
+    this.mobileNumberDigits = this.mobileNumber ? this.mobileNumber.replace(/\D/g, '') : undefined;
+  }
+  next();
+});
+
+providerSchema.methods.comparePassword = async function (candidatePassword) {
   if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-maidSchema.index({ emirate: 1 });
-maidSchema.index({ skills: 1 });
-maidSchema.index({ monthlySalaryAed: 1 });
-maidSchema.index({ categoryId: 1 });
-maidSchema.index({ area: 1 });
-maidSchema.index({ applicationStatus: 1 });
+providerSchema.index({ emirate: 1 });
+providerSchema.index({ skills: 1 });
+providerSchema.index({ monthlySalaryAed: 1 });
+providerSchema.index({ categoryId: 1 });
+providerSchema.index({ area: 1 });
+providerSchema.index({ applicationStatus: 1 });
 
-module.exports = mongoose.model('Maid', maidSchema);
+// Collection name is pinned to the existing 'maids' collection so renaming
+// the model doesn't orphan any provider already registered through the
+// live API. Rename this (and migrate the collection) only in a deliberate,
+// separate step.
+module.exports = mongoose.model('Provider', providerSchema, 'maids');

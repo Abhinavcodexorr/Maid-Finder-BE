@@ -1,12 +1,12 @@
 const Booking = require('../models/Booking');
-const Maid = require('../models/Maid');
+const Provider = require('../models/Provider');
 
 exports.createBooking = async (req, res, next) => {
   try {
     const { maidId, scheduledDate, startTime, endTime, duration, monthlySalaryAed, address, emirate, notes } = req.body;
-    const maid = await Maid.findById(maidId);
-    if (!maid) {
-      return res.status(404).json({ success: false, message: 'Maid not found' });
+    const provider = await Provider.findById(maidId);
+    if (!provider) {
+      return res.status(404).json({ success: false, message: 'Provider not found' });
     }
     const booking = await Booking.create({
       user: req.user._id,
@@ -15,7 +15,7 @@ exports.createBooking = async (req, res, next) => {
       startTime,
       endTime,
       duration: duration || 1,
-      monthlySalaryAed: monthlySalaryAed || maid.monthlySalaryAed,
+      monthlySalaryAed: monthlySalaryAed || provider.monthlySalaryAed,
       address,
       emirate,
       notes,

@@ -17,13 +17,13 @@ exports.getDashboard = async (req, res, next) => {
         .populate('maid', 'fullName email phone imageUrl monthlySalaryAed skills emirate nationality visaStatus')
         .sort({ createdAt: -1 }),
     ]);
-    const favouriteMaids = favourites.map((f) => f.maid);
+    const favouriteProviders = favourites.map((f) => f.maid);
     res.json({
       success: true,
       data: {
         upcomingBookings,
         previousBookings,
-        favouriteMaids,
+        favouriteProviders,
       },
     });
   } catch (error) {

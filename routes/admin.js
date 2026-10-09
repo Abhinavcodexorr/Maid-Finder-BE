@@ -1,15 +1,15 @@
 const express = require('express');
 const adminAuth = require('../middleware/adminAuth');
-const { listMaids, approveMaid, rejectMaid, updateMaid, deleteMaid } = require('../controllers/adminController');
+const { listProviders, approveProvider, rejectProvider, updateProvider, deleteProvider } = require('../controllers/adminController');
 
 const router = express.Router();
 
 router.use(adminAuth);
 
-router.get('/maids', listMaids);
-router.patch('/maids/:id/approve', approveMaid);
-router.patch('/maids/:id/reject', rejectMaid);
-router.patch('/maids/:id', updateMaid);
-router.delete('/maids/:id', deleteMaid);
+router.get('/providers', listProviders);
+router.patch('/providers/:id/approve', approveProvider);
+router.patch('/providers/:id/reject', rejectProvider);
+router.patch('/providers/:id', updateProvider);
+router.delete('/providers/:id', deleteProvider);
 
 module.exports = router;

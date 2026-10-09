@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const Maid = require('../models/Maid');
+const Provider = require('../models/Provider');
 const User = require('../models/User');
 
 const protect = async (req, res, next) => {
@@ -18,10 +18,10 @@ const protect = async (req, res, next) => {
       if (!user.isActive) return res.status(401).json({ success: false, message: 'Account is deactivated.' });
       req.user = user;
     } else {
-      const maid = await Maid.findById(decoded.id).select('-password');
-      if (!maid) return res.status(401).json({ success: false, message: 'Maid not found.' });
-      if (!maid.isActive) return res.status(401).json({ success: false, message: 'Account is deactivated.' });
-      req.maid = maid;
+      const provider = await Provider.findById(decoded.id).select('-password');
+      if (!provider) return res.status(401).json({ success: false, message: 'Provider not found.' });
+      if (!provider.isActive) return res.status(401).json({ success: false, message: 'Account is deactivated.' });
+      req.provider = provider;
     }
     next();
   } catch (error) {
@@ -29,7 +29,7 @@ const protect = async (req, res, next) => {
   }
 };
 
-const protectMaid = async (req, res, next) => {
+const protectProvider = async (req, res, next) => {
   let token;
   if (req.headers.authorization?.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];
@@ -40,12 +40,12 @@ const protectMaid = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (decoded.type === 'customer') {
-      return res.status(403).json({ success: false, message: 'Maid login required.' });
+      return res.status(403).json({ success: false, message: 'Provider login required.' });
     }
-    const maid = await Maid.findById(decoded.id).select('-password');
-    if (!maid) return res.status(401).json({ success: false, message: 'Maid not found.' });
-    if (!maid.isActive) return res.status(401).json({ success: false, message: 'Account is deactivated.' });
-    req.maid = maid;
+    const provider = await Provider.findById(decoded.id).select('-password');
+    if (!provider) return res.status(401).json({ success: false, message: 'Provider not found.' });
+    if (!provider.isActive) return res.status(401).json({ success: false, message: 'Account is deactivated.' });
+    req.provider = provider;
     next();
   } catch (error) {
     return res.status(401).json({ success: false, message: 'Invalid or expired token.' });
@@ -75,4 +75,4 @@ const protectCustomer = async (req, res, next) => {
   }
 };
 
-module.exports = { protect, protectMaid, protectCustomer };
+module.exports = { protect, protectProvider, protectCustomer };

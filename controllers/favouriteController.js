@@ -1,15 +1,15 @@
 const Favourite = require('../models/Favourite');
-const Maid = require('../models/Maid');
+const Provider = require('../models/Provider');
 
 exports.addFavourite = async (req, res, next) => {
   try {
-    const maid = await Maid.findById(req.params.maidId);
-    if (!maid) {
-      return res.status(404).json({ success: false, message: 'Maid not found' });
+    const provider = await Provider.findById(req.params.maidId);
+    if (!provider) {
+      return res.status(404).json({ success: false, message: 'Provider not found' });
     }
     const existing = await Favourite.findOne({ user: req.user._id, maid: req.params.maidId });
     if (existing) {
-      return res.status(400).json({ success: false, message: 'Maid already in favourites' });
+      return res.status(400).json({ success: false, message: 'Provider already in favourites' });
     }
     const favourite = await Favourite.create({
       user: req.user._id,

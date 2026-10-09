@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
-const { register, login, getMe, listMaids, getMaidById, updateMaid, updateMyProfile } = require('../controllers/maidController');
-const { protectMaid } = require('../middleware/auth');
+const { register, login, getMe, listProviders, getProviderById, updateProvider, updateMyProfile } = require('../controllers/providerController');
+const { protectProvider } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -34,10 +34,10 @@ const registerUpload = multer({
   },
 });
 
-router.get('/list', listMaids);
-router.get('/me', protectMaid, getMe);
-router.put('/me', protectMaid, updateMyProfile);
-router.get('/:id', getMaidById);
+router.get('/list', listProviders);
+router.get('/me', protectProvider, getMe);
+router.put('/me', protectProvider, updateMyProfile);
+router.get('/:id', getProviderById);
 router.post(
   '/register',
   registerUpload.fields([
@@ -47,6 +47,6 @@ router.post(
   register
 );
 router.post('/login', login);
-router.put('/:id', protectMaid, updateMaid);
+router.put('/:id', protectProvider, updateProvider);
 
 module.exports = router;

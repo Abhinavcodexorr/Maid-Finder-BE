@@ -1,5 +1,5 @@
 const express = require('express');
-const maidRoutes = require('./maids');
+const providerRoutes = require('./providers');
 const userRoutes = require('./customers');
 const uploadRoutes = require('./upload');
 const adminRoutes = require('./admin');
@@ -9,12 +9,12 @@ const { protect } = require('../middleware/auth');
 const router = express.Router();
 
 router.get('/health', (req, res) => {
-  res.json({ success: true, message: 'Maid Finder API is running', timestamp: new Date().toISOString() });
+  res.json({ success: true, message: 'Help Zone API is running', timestamp: new Date().toISOString() });
 });
 
 router.post('/logout', protect, logout);
 router.use('/upload', uploadRoutes);
-router.use('/maids', maidRoutes);
+router.use('/providers', providerRoutes);
 router.use('/user', userRoutes);
 router.use('/admin', adminRoutes);
 
