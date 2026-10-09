@@ -32,7 +32,7 @@ const bookingSchema = new mongoose.Schema(
       type: Number,
       default: 1,
     },
-    monthlySalaryAed: {
+    monthlySalary: {
       type: Number,
       default: 0,
     },

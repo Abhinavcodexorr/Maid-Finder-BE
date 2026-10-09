@@ -17,7 +17,7 @@ const serializeProvider = (provider) => ({
   emirate: provider.emirate,
   visaStatus: provider.visaStatus,
   experienceYears: provider.experienceYears,
-  monthlySalaryAed: provider.monthlySalaryAed,
+  monthlySalary: provider.monthlySalary,
   skills: provider.skills,
   imageUrl: provider.imageUrl,
   phone: provider.phone,
@@ -177,7 +177,7 @@ exports.getProviderById = async (req, res, next) => {
 const ALLOWED_PROFILE_FIELDS = [
   'fullName', 'gender', 'nationality', 'categoryId', 'area', 'city',
   'mobileNumber', 'whatsappNumber', 'emirate', 'visaStatus', 'experienceYears',
-  'monthlySalaryAed', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
+  'monthlySalary', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
   'age', 'panNumber', 'maritalStatus', 'religion', 'hasPassport', 'visaExpiryDate', 'availability',
   'preferredJob', 'duration', 'languages', 'education', 'certificate',
   'lastWorkingExperience', 'jobDescription', 'hasReferenceLetter', 'referenceLetterUrl',
@@ -204,7 +204,7 @@ exports.updateMyProfile = async (req, res, next) => {
 // ---------------------------------------------------------------------
 
 const WORK_PREFERENCES_FIELDS = [
-  'experienceYears', 'monthlySalaryAed', 'categoryId', 'duration', 'languages', 'skills', 'education',
+  'experienceYears', 'monthlySalary', 'categoryId', 'duration', 'languages', 'skills', 'education',
 ];
 
 const LAST_JOB_FIELDS = [
@@ -306,9 +306,9 @@ exports.listProviders = async (req, res, next) => {
       if (skillArr.length) query.skills = { $in: skillArr };
     }
     if (minSalary || maxSalary) {
-      query.monthlySalaryAed = {};
-      if (minSalary) query.monthlySalaryAed.$gte = Number(minSalary);
-      if (maxSalary) query.monthlySalaryAed.$lte = Number(maxSalary);
+      query.monthlySalary = {};
+      if (minSalary) query.monthlySalary.$gte = Number(minSalary);
+      if (maxSalary) query.monthlySalary.$lte = Number(maxSalary);
     }
 
     const skip = (Number(page) - 1) * Number(limit);

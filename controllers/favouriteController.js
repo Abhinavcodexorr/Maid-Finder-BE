@@ -16,7 +16,7 @@ exports.addFavourite = async (req, res, next) => {
       user: req.user._id,
       maid: req.params.maidId,
     });
-    await favourite.populate('maid', 'fullName email phone imageUrl monthlySalaryAed skills emirate');
+    await favourite.populate('maid', 'fullName email phone imageUrl monthlySalary skills emirate');
     res.status(201).json({ success: true, data: favourite });
   } catch (error) {
     next(error);
@@ -41,7 +41,7 @@ exports.removeFavourite = async (req, res, next) => {
 exports.getMyFavourites = async (req, res, next) => {
   try {
     const favourites = await Favourite.find({ user: req.user._id })
-      .populate('maid', 'fullName email phone imageUrl monthlySalaryAed skills emirate nationality visaStatus')
+      .populate('maid', 'fullName email phone imageUrl monthlySalary skills emirate nationality visaStatus')
       .sort({ createdAt: -1 });
     res.json({
       success: true,

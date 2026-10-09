@@ -67,7 +67,7 @@ const providerSchema = new mongoose.Schema(
       type: Number,
       min: [0, 'Experience cannot be negative'],
     },
-    monthlySalaryAed: {
+    monthlySalary: {
       type: Number,
       min: [0, 'Salary cannot be negative'],
     },
@@ -222,7 +222,7 @@ providerSchema.methods.comparePassword = async function (candidatePassword) {
 
 providerSchema.index({ emirate: 1 });
 providerSchema.index({ skills: 1 });
-providerSchema.index({ monthlySalaryAed: 1 });
+providerSchema.index({ monthlySalary: 1 });
 providerSchema.index({ categoryId: 1 });
 providerSchema.index({ area: 1 });
 providerSchema.index({ applicationStatus: 1 });

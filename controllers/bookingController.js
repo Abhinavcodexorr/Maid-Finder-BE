@@ -4,7 +4,7 @@ const MESSAGES = require('../config/errorMessages.json');
 
 exports.createBooking = async (req, res, next) => {
   try {
-    const { maidId, scheduledDate, startTime, endTime, duration, monthlySalaryAed, address, emirate, notes } = req.body;
+    const { maidId, scheduledDate, startTime, endTime, duration, monthlySalary, address, emirate, notes } = req.body;
     const provider = await Provider.findById(maidId);
     if (!provider) {
       return res.status(404).json({ success: false, message: MESSAGES.booking.providerNotFound });
@@ -16,12 +16,12 @@ exports.createBooking = async (req, res, next) => {
       startTime,
       endTime,
       duration: duration || 1,
-      monthlySalaryAed: monthlySalaryAed || provider.monthlySalaryAed,
+      monthlySalary: monthlySalary || provider.monthlySalary,
       address,
       emirate,
       notes,
     });
-    await booking.populate('maid', 'fullName email phone imageUrl monthlySalaryAed skills');
+    await booking.populate('maid', 'fullName email phone imageUrl monthlySalary skills');
     res.status(201).json({ success: true, data: booking });
   } catch (error) {
     next(error);
@@ -35,7 +35,7 @@ exports.getMyBookings = async (req, res, next) => {
     if (status) query.status = status;
     const skip = (Number(page) - 1) * Number(limit);
     const bookings = await Booking.find(query)
-      .populate('maid', 'fullName email phone imageUrl monthlySalaryAed skills emirate')
+      .populate('maid', 'fullName email phone imageUrl monthlySalary skills emirate')
       .sort({ scheduledDate: -1 })
       .skip(skip)
       .limit(Number(limit));
