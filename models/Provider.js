@@ -92,6 +92,17 @@ const providerSchema = new mongoose.Schema(
       type: String,
       maxlength: [500, 'Bio cannot exceed 500 characters'],
     },
+    age: {
+      type: Number,
+      min: [18, 'Must be at least 18 years old'],
+      max: [100, 'Please enter a valid age'],
+    },
+    panNumber: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      maxlength: [10, 'PAN number cannot exceed 10 characters'],
+    },
     isActive: {
       type: Boolean,
       default: true,
