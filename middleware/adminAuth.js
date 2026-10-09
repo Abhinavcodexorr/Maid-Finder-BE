@@ -1,11 +1,13 @@
+const MESSAGES = require('../config/errorMessages.json');
+
 const adminAuth = (req, res, next) => {
   const configuredKey = process.env.ADMIN_API_KEY;
   if (!configuredKey) {
-    return res.status(500).json({ success: false, message: 'Admin API is not configured' });
+    return res.status(500).json({ success: false, message: MESSAGES.admin.notConfigured });
   }
   const providedKey = req.headers['x-admin-key'];
   if (!providedKey || providedKey !== configuredKey) {
-    return res.status(401).json({ success: false, message: 'Invalid admin credentials' });
+    return res.status(401).json({ success: false, message: MESSAGES.admin.invalidCredentials });
   }
   next();
 };

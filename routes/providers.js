@@ -2,6 +2,8 @@ const express = require('express');
 const multer = require('multer');
 const { register, login, getMe, listProviders, getProviderById, updateProvider, updateMyProfile } = require('../controllers/providerController');
 const { protectProvider } = require('../middleware/auth');
+const MESSAGES = require('../config/errorMessages.json');
+const formatMessage = require('../utils/formatMessage');
 
 const router = express.Router();
 
@@ -14,7 +16,7 @@ const registerUpload = multer({
   fileFilter: (req, file, cb) => {
     if (file.fieldname === 'photo') {
       if (!IMAGE_MIMETYPES.includes(file.mimetype)) {
-        const error = new Error('Photo must be an image (jpeg, jpg, png or webp)');
+        const error = new Error(MESSAGES.provider.photoInvalidType);
         error.statusCode = 400;
         return cb(error, false);
       }
@@ -22,13 +24,13 @@ const registerUpload = multer({
     }
     if (file.fieldname === 'idDocument') {
       if (!ID_DOCUMENT_MIMETYPES.includes(file.mimetype)) {
-        const error = new Error('ID document must be an image (jpeg, jpg, png, webp) or PDF');
+        const error = new Error(MESSAGES.provider.idDocumentInvalidType);
         error.statusCode = 400;
         return cb(error, false);
       }
       return cb(null, true);
     }
-    const error = new Error(`Unexpected file field: ${file.fieldname}`);
+    const error = new Error(formatMessage(MESSAGES.provider.unexpectedFileField, { field: file.fieldname }));
     error.statusCode = 400;
     cb(error, false);
   },

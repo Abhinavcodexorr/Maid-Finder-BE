@@ -1,12 +1,13 @@
 const Booking = require('../models/Booking');
 const Provider = require('../models/Provider');
+const MESSAGES = require('../config/errorMessages.json');
 
 exports.createBooking = async (req, res, next) => {
   try {
     const { maidId, scheduledDate, startTime, endTime, duration, monthlySalaryAed, address, emirate, notes } = req.body;
     const provider = await Provider.findById(maidId);
     if (!provider) {
-      return res.status(404).json({ success: false, message: 'Provider not found' });
+      return res.status(404).json({ success: false, message: MESSAGES.booking.providerNotFound });
     }
     const booking = await Booking.create({
       user: req.user._id,
@@ -56,10 +57,10 @@ exports.cancelBooking = async (req, res, next) => {
   try {
     const booking = await Booking.findOne({ _id: req.params.id, user: req.user._id });
     if (!booking) {
-      return res.status(404).json({ success: false, message: 'Booking not found' });
+      return res.status(404).json({ success: false, message: MESSAGES.booking.notFound });
     }
     if (booking.status === 'cancelled') {
-      return res.status(400).json({ success: false, message: 'Booking already cancelled' });
+      return res.status(400).json({ success: false, message: MESSAGES.booking.alreadyCancelled });
     }
     booking.status = 'cancelled';
     await booking.save();

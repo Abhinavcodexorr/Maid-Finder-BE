@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const generateToken = require('../utils/jwt');
+const MESSAGES = require('../config/errorMessages.json');
 
 exports.register = async (req, res, next) => {
   try {
@@ -7,7 +8,7 @@ exports.register = async (req, res, next) => {
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ success: false, message: 'Email already registered' });
+      return res.status(400).json({ success: false, message: MESSAGES.customer.emailAlreadyRegistered });
     }
 
     const user = await User.create({
@@ -42,11 +43,11 @@ exports.login = async (req, res, next) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+      return res.status(401).json({ success: false, message: MESSAGES.customer.invalidCredentials });
     }
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+      return res.status(401).json({ success: false, message: MESSAGES.customer.invalidCredentials });
     }
     const token = generateToken(user._id, 'customer');
     res.json({

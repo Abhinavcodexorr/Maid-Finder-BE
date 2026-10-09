@@ -1,4 +1,5 @@
 const Provider = require('../models/Provider');
+const MESSAGES = require('../config/errorMessages.json');
 
 const serializeProviderForAdmin = (provider) => ({
   id: provider._id,
@@ -55,7 +56,7 @@ exports.approveProvider = async (req, res, next) => {
   try {
     const provider = await Provider.findById(req.params.id);
     if (!provider) {
-      return res.status(404).json({ success: false, message: 'Provider not found' });
+      return res.status(404).json({ success: false, message: MESSAGES.admin.providerNotFound });
     }
     provider.applicationStatus = 'approved';
     provider.rejectionReason = undefined;
@@ -70,11 +71,11 @@ exports.rejectProvider = async (req, res, next) => {
   try {
     const { reason } = req.body;
     if (!reason || !reason.trim()) {
-      return res.status(400).json({ success: false, message: 'A rejection reason is required' });
+      return res.status(400).json({ success: false, message: MESSAGES.admin.rejectionReasonRequired });
     }
     const provider = await Provider.findById(req.params.id);
     if (!provider) {
-      return res.status(404).json({ success: false, message: 'Provider not found' });
+      return res.status(404).json({ success: false, message: MESSAGES.admin.providerNotFound });
     }
     provider.applicationStatus = 'rejected';
     provider.rejectionReason = reason.trim();
@@ -102,7 +103,7 @@ exports.updateProvider = async (req, res, next) => {
   try {
     const provider = await Provider.findById(req.params.id);
     if (!provider) {
-      return res.status(404).json({ success: false, message: 'Provider not found' });
+      return res.status(404).json({ success: false, message: MESSAGES.admin.providerNotFound });
     }
 
     for (const field of EDITABLE_FIELDS) {
@@ -124,7 +125,7 @@ exports.deleteProvider = async (req, res, next) => {
   try {
     const provider = await Provider.findByIdAndDelete(req.params.id);
     if (!provider) {
-      return res.status(404).json({ success: false, message: 'Provider not found' });
+      return res.status(404).json({ success: false, message: MESSAGES.admin.providerNotFound });
     }
     res.json({ success: true, data: { id: req.params.id } });
   } catch (error) {

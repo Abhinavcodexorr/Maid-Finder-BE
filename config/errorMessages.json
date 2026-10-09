@@ -1,0 +1,68 @@
+{
+  "server": {
+    "routeNotFound": "Route not found",
+    "tooManyRequests": "Too many requests. Please try again later.",
+    "resourceNotFound": "Resource not found",
+    "invalidToken": "Invalid token",
+    "serverError": "Server Error",
+    "corsNotAllowed": "CORS not allowed",
+    "fieldAlreadyExists": "{field} already exists"
+  },
+  "auth": {
+    "notAuthorized": "Not authorized. Please login.",
+    "invalidOrExpiredToken": "Invalid or expired token.",
+    "accountDeactivated": "Account is deactivated.",
+    "providerLoginRequired": "Provider login required.",
+    "customerLoginRequired": "Customer login required.",
+    "userNotFound": "User not found.",
+    "providerNotFound": "Provider not found."
+  },
+  "admin": {
+    "notConfigured": "Admin API is not configured",
+    "invalidCredentials": "Invalid admin credentials",
+    "rejectionReasonRequired": "A rejection reason is required",
+    "providerNotFound": "Provider not found"
+  },
+  "provider": {
+    "registerFieldsRequired": "fullName, email and password are required",
+    "photoRequired": "A photo of yourself is required",
+    "idDocumentRequired": "An ID document is required",
+    "emailAlreadyRegistered": "Email already registered",
+    "loginFieldsRequired": "Email/phone and password are required",
+    "invalidCredentials": "Invalid email/phone or password",
+    "accountDeactivated": "Account is deactivated.",
+    "notFound": "Provider not found",
+    "notAuthorizedToUpdate": "Not authorized to update this provider",
+    "photoInvalidType": "Photo must be an image (jpeg, jpg, png or webp)",
+    "idDocumentInvalidType": "ID document must be an image (jpeg, jpg, png, webp) or PDF",
+    "unexpectedFileField": "Unexpected file field: {field}"
+  },
+  "customer": {
+    "emailAlreadyRegistered": "Email already registered",
+    "invalidCredentials": "Invalid email or password"
+  },
+  "booking": {
+    "providerNotFound": "Provider not found",
+    "notFound": "Booking not found",
+    "alreadyCancelled": "Booking already cancelled"
+  },
+  "favourite": {
+    "providerNotFound": "Provider not found",
+    "alreadyFavourited": "Provider already in favourites",
+    "notFound": "Favourite not found",
+    "removed": "Removed from favourites"
+  },
+  "upload": {
+    "noFileProvided": "No image file provided",
+    "s3NotConfigured": "S3 bucket not configured",
+    "invalidFileType": "Only images (jpeg, jpg, png, gif, webp) are allowed",
+    "fileTooLarge": "Image size must be less than 5MB"
+  },
+  "validation": {
+    "failed": "Validation failed"
+  },
+  "generic": {
+    "loggedOut": "Logged out successfully",
+    "healthOk": "Help Zone API is running"
+  }
+}

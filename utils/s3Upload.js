@@ -1,6 +1,7 @@
 const { PutObjectCommand } = require('@aws-sdk/client-s3');
 const { v4: uuidv4 } = require('uuid');
 const { s3Client } = require('../config/s3');
+const MESSAGES = require('../config/errorMessages.json');
 
 const EXTENSION_BY_MIME = {
   'image/jpeg': 'jpg',
@@ -14,7 +15,7 @@ const EXTENSION_BY_MIME = {
 const uploadBufferToS3 = async (buffer, mimetype, folder) => {
   const bucket = process.env.AWS_S3_BUCKET;
   if (!bucket) {
-    const error = new Error('S3 bucket not configured');
+    const error = new Error(MESSAGES.upload.s3NotConfigured);
     error.statusCode = 500;
     throw error;
   }

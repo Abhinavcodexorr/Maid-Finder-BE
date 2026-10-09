@@ -9,6 +9,7 @@ const connectDB = require('./config/db');
 const routes = require('./routes');
 const errorHandler = require('./middleware/errorHandler');
 const { RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX } = require('./config/constants');
+const MESSAGES = require('./config/errorMessages.json');
 
 connectDB().catch(() => {});
 
@@ -31,7 +32,7 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error("CORS not allowed"));
+        callback(new Error(MESSAGES.server.corsNotAllowed));
       }
     },
     credentials: true,
@@ -43,7 +44,7 @@ app.use(
   rateLimit({
     windowMs: RATE_LIMIT_WINDOW_MS,
     max: RATE_LIMIT_MAX,
-    message: { success: false, message: 'Too many requests. Please try again later.' },
+    message: { success: false, message: MESSAGES.server.tooManyRequests },
   })
 );
 
@@ -59,7 +60,7 @@ app.use('/api/v1', routes);
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found' });
+  res.status(404).json({ success: false, message: MESSAGES.server.routeNotFound });
 });
 
 // Error handler

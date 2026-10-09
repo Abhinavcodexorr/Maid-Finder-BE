@@ -1,6 +1,7 @@
 const Provider = require('../models/Provider');
 const generateToken = require('../utils/jwt');
 const { uploadBufferToS3 } = require('../utils/s3Upload');
+const MESSAGES = require('../config/errorMessages.json');
 
 const serializeProvider = (provider) => ({
   id: provider._id,
@@ -47,21 +48,21 @@ exports.register = async (req, res, next) => {
     } = req.body;
 
     if (!fullName || !email || !password) {
-      return res.status(400).json({ success: false, message: 'fullName, email and password are required' });
+      return res.status(400).json({ success: false, message: MESSAGES.provider.registerFieldsRequired });
     }
 
     const photoFile = req.files?.photo?.[0];
     const idDocumentFile = req.files?.idDocument?.[0];
     if (!photoFile) {
-      return res.status(400).json({ success: false, message: 'A photo of yourself is required' });
+      return res.status(400).json({ success: false, message: MESSAGES.provider.photoRequired });
     }
     if (!idDocumentFile) {
-      return res.status(400).json({ success: false, message: 'An ID document is required' });
+      return res.status(400).json({ success: false, message: MESSAGES.provider.idDocumentRequired });
     }
 
     const existingProvider = await Provider.findOne({ email });
     if (existingProvider) {
-      return res.status(400).json({ success: false, message: 'Email already registered' });
+      return res.status(400).json({ success: false, message: MESSAGES.provider.emailAlreadyRegistered });
     }
 
     const [imageUrl, idDocumentUrl] = await Promise.all([
@@ -110,7 +111,7 @@ exports.login = async (req, res, next) => {
     const { password } = req.body;
 
     if (!rawIdentifier || !password) {
-      return res.status(400).json({ success: false, message: 'Email/phone and password are required' });
+      return res.status(400).json({ success: false, message: MESSAGES.provider.loginFieldsRequired });
     }
 
     const isEmail = EMAIL_PATTERN.test(rawIdentifier);
@@ -119,19 +120,19 @@ exports.login = async (req, res, next) => {
       : { mobileNumberDigits: rawIdentifier.replace(/\D/g, '') };
 
     if (!isEmail && !query.mobileNumberDigits) {
-      return res.status(401).json({ success: false, message: 'Invalid email/phone or password' });
+      return res.status(401).json({ success: false, message: MESSAGES.provider.invalidCredentials });
     }
 
     const provider = await Provider.findOne(query).select('+password');
     if (!provider) {
-      return res.status(401).json({ success: false, message: 'Invalid email/phone or password' });
+      return res.status(401).json({ success: false, message: MESSAGES.provider.invalidCredentials });
     }
     const isMatch = await provider.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid email/phone or password' });
+      return res.status(401).json({ success: false, message: MESSAGES.provider.invalidCredentials });
     }
     if (!provider.isActive) {
-      return res.status(401).json({ success: false, message: 'Account is deactivated.' });
+      return res.status(401).json({ success: false, message: MESSAGES.provider.accountDeactivated });
     }
     const token = generateToken(provider._id, 'provider');
     res.json({
@@ -156,7 +157,7 @@ exports.getProviderById = async (req, res, next) => {
   try {
     const provider = await Provider.findById(req.params.id).select('-kyc.idNumber');
     if (!provider) {
-      return res.status(404).json({ success: false, message: 'Provider not found' });
+      return res.status(404).json({ success: false, message: MESSAGES.provider.notFound });
     }
     res.json({ success: true, data: provider });
   } catch (error) {
@@ -191,7 +192,7 @@ exports.updateMyProfile = async (req, res, next) => {
 exports.updateProvider = async (req, res, next) => {
   try {
     if (req.provider._id.toString() !== req.params.id) {
-      return res.status(403).json({ success: false, message: 'Not authorized to update this provider' });
+      return res.status(403).json({ success: false, message: MESSAGES.provider.notAuthorizedToUpdate });
     }
     const provider = req.provider;
     ALLOWED_PROFILE_FIELDS.forEach((key) => {

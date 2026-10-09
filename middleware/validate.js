@@ -1,4 +1,5 @@
 const { validationResult } = require('express-validator');
+const MESSAGES = require('../config/errorMessages.json');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -9,7 +10,7 @@ const validate = (req, res, next) => {
   }));
   return res.status(400).json({
     success: false,
-    message: 'Validation failed',
+    message: MESSAGES.validation.failed,
     errors: extracted,
   });
 };
