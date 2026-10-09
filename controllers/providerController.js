@@ -267,18 +267,81 @@ exports.updateLastJob = async (req, res, next) => {
   }
 };
 
+// Resubmitting after a rejection sends it back for review; leave
+// pending/approved providers' status untouched.
+const markSubmittedForReview = (provider) => {
+  provider.profileComplete = true;
+  if (provider.applicationStatus === 'rejected') {
+    provider.applicationStatus = 'pending';
+    provider.rejectionReason = undefined;
+  } else if (!provider.applicationStatus) {
+    provider.applicationStatus = 'pending';
+  }
+};
+
 exports.submitProfile = async (req, res, next) => {
   try {
     const provider = req.provider;
-    provider.profileComplete = true;
-    // Resubmitting after a rejection sends it back for review; leave
-    // pending/approved providers' status untouched.
-    if (provider.applicationStatus === 'rejected') {
-      provider.applicationStatus = 'pending';
-      provider.rejectionReason = undefined;
-    } else if (!provider.applicationStatus) {
-      provider.applicationStatus = 'pending';
-    }
+    markSubmittedForReview(provider);
+    await provider.save();
+    res.json({ success: true, provider: serializeProviderFull(provider) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Combined one-shot version of the 4-step wizard above, for a frontend
+// that collects everything client-side and submits once instead of
+// calling general-info / work-preferences / last-job / submit
+// separately. Accepts multipart/form-data (photo/idDocument optional)
+// with `generalInfo`, `workPreferences` and `lastJob` as either nested
+// JSON objects (when posted as JSON) or JSON-stringified form fields
+// (when posted as multipart, since multipart fields are flat strings).
+exports.completeProfile = async (req, res, next) => {
+  try {
+    const provider = req.provider;
+
+    const parseSection = (value) => {
+      if (!value) return {};
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return {};
+        }
+      }
+      return value;
+    };
+
+    const generalInfo = parseSection(req.body.generalInfo);
+    const workPreferences = parseSection(req.body.workPreferences);
+    const lastJob = parseSection(req.body.lastJob);
+
+    if (generalInfo.age !== undefined) provider.age = generalInfo.age;
+    if (generalInfo.maritalStatus !== undefined) provider.maritalStatus = generalInfo.maritalStatus;
+    if (generalInfo.panNumber !== undefined) provider.panNumber = generalInfo.panNumber;
+    if (generalInfo.idType !== undefined) provider.kyc.idType = generalInfo.idType;
+    if (generalInfo.idNumber !== undefined) provider.kyc.idNumber = generalInfo.idNumber;
+
+    WORK_PREFERENCES_FIELDS.forEach((key) => {
+      if (workPreferences[key] !== undefined) provider[key] = workPreferences[key];
+    });
+
+    LAST_JOB_FIELDS.forEach((key) => {
+      if (lastJob[key] !== undefined) provider.lastWorkingExperience[key] = lastJob[key];
+    });
+    if (lastJob.jobDescription !== undefined) provider.jobDescription = lastJob.jobDescription;
+
+    const photoFile = req.files?.photo?.[0];
+    const idDocumentFile = req.files?.idDocument?.[0];
+    const [imageUrl, idDocumentUrl] = await Promise.all([
+      photoFile ? uploadBufferToS3(photoFile.buffer, photoFile.mimetype, 'help-zone/photos') : null,
+      idDocumentFile ? uploadBufferToS3(idDocumentFile.buffer, idDocumentFile.mimetype, 'help-zone/kyc') : null,
+    ]);
+    if (imageUrl) provider.imageUrl = imageUrl;
+    if (idDocumentUrl) provider.kyc.idDocumentUrl = idDocumentUrl;
+
+    markSubmittedForReview(provider);
     await provider.save();
     res.json({ success: true, provider: serializeProviderFull(provider) });
   } catch (error) {

@@ -12,6 +12,7 @@ const {
   updateWorkPreferences,
   updateLastJob,
   submitProfile,
+  completeProfile,
 } = require('../controllers/providerController');
 const { protectProvider } = require('../middleware/auth');
 const MESSAGES = require('../config/errorMessages.json');
@@ -72,6 +73,18 @@ router.patch('/me/last-job', protectProvider, updateLastJob);
 // Step 4/4 — Review & submit: marks the profile complete and (re)submits
 // it for admin review.
 router.post('/me/submit', protectProvider, submitProfile);
+
+// One-shot alternative to the 4 steps above, for a frontend that collects
+// everything itself and submits once. See completeProfile for the body shape.
+router.post(
+  '/me/complete-profile',
+  protectProvider,
+  registerUpload.fields([
+    { name: 'photo', maxCount: 1 },
+    { name: 'idDocument', maxCount: 1 },
+  ]),
+  completeProfile
+);
 
 router.get('/:id', getProviderById);
 router.post(
