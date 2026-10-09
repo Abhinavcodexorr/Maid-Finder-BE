@@ -199,73 +199,17 @@ exports.updateMyProfile = async (req, res, next) => {
 };
 
 // ---------------------------------------------------------------------
-// Profile-completion wizard: General info -> Work preferences -> Last
-// job -> Review & submit. Each step saves independently (the provider
-// can leave and come back), so nothing here is required — only the
-// fields actually sent are updated.
+// Profile-completion: General info + Work preferences + Last job,
+// submitted together in one call from the 4-step form on the frontend.
 // ---------------------------------------------------------------------
-
-exports.updateGeneralInfo = async (req, res, next) => {
-  try {
-    const provider = req.provider;
-    const { age, maritalStatus, panNumber, idType, idNumber } = req.body;
-
-    if (age !== undefined) provider.age = age;
-    if (maritalStatus !== undefined) provider.maritalStatus = maritalStatus;
-    if (panNumber !== undefined) provider.panNumber = panNumber;
-    if (idType !== undefined) provider.kyc.idType = idType;
-    if (idNumber !== undefined) provider.kyc.idNumber = idNumber;
-
-    const photoFile = req.files?.photo?.[0];
-    const idDocumentFile = req.files?.idDocument?.[0];
-    const [imageUrl, idDocumentUrl] = await Promise.all([
-      photoFile ? uploadBufferToS3(photoFile.buffer, photoFile.mimetype, 'help-zone/photos') : null,
-      idDocumentFile ? uploadBufferToS3(idDocumentFile.buffer, idDocumentFile.mimetype, 'help-zone/kyc') : null,
-    ]);
-    if (imageUrl) provider.imageUrl = imageUrl;
-    if (idDocumentUrl) provider.kyc.idDocumentUrl = idDocumentUrl;
-
-    await provider.save();
-    res.json({ success: true, provider: serializeProviderFull(provider) });
-  } catch (error) {
-    next(error);
-  }
-};
 
 const WORK_PREFERENCES_FIELDS = [
   'experienceYears', 'monthlySalaryAed', 'categoryId', 'duration', 'languages', 'skills', 'education',
 ];
 
-exports.updateWorkPreferences = async (req, res, next) => {
-  try {
-    const provider = req.provider;
-    WORK_PREFERENCES_FIELDS.forEach((key) => {
-      if (req.body[key] !== undefined) provider[key] = req.body[key];
-    });
-    await provider.save();
-    res.json({ success: true, provider: serializeProviderFull(provider) });
-  } catch (error) {
-    next(error);
-  }
-};
-
 const LAST_JOB_FIELDS = [
   'jobTitle', 'workingCity', 'familySize', 'employerNationality', 'duration', 'salary', 'reasonForLeaving',
 ];
-
-exports.updateLastJob = async (req, res, next) => {
-  try {
-    const provider = req.provider;
-    LAST_JOB_FIELDS.forEach((key) => {
-      if (req.body[key] !== undefined) provider.lastWorkingExperience[key] = req.body[key];
-    });
-    if (req.body.jobDescription !== undefined) provider.jobDescription = req.body.jobDescription;
-    await provider.save();
-    res.json({ success: true, provider: serializeProviderFull(provider) });
-  } catch (error) {
-    next(error);
-  }
-};
 
 // Resubmitting after a rejection sends it back for review; leave
 // pending/approved providers' status untouched.
@@ -279,24 +223,9 @@ const markSubmittedForReview = (provider) => {
   }
 };
 
-exports.submitProfile = async (req, res, next) => {
-  try {
-    const provider = req.provider;
-    markSubmittedForReview(provider);
-    await provider.save();
-    res.json({ success: true, provider: serializeProviderFull(provider) });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Combined one-shot version of the 4-step wizard above, for a frontend
-// that collects everything client-side and submits once instead of
-// calling general-info / work-preferences / last-job / submit
-// separately. Accepts multipart/form-data (photo/idDocument optional)
-// with `generalInfo`, `workPreferences` and `lastJob` as either nested
-// JSON objects (when posted as JSON) or JSON-stringified form fields
-// (when posted as multipart, since multipart fields are flat strings).
+// Accepts generalInfo/workPreferences/lastJob either as nested JSON
+// objects (plain JSON request) or JSON-stringified form fields
+// (multipart, needed when photo/idDocument files are also being sent).
 exports.completeProfile = async (req, res, next) => {
   try {
     const provider = req.provider;

@@ -8,10 +8,6 @@ const {
   getProviderById,
   updateProvider,
   updateMyProfile,
-  updateGeneralInfo,
-  updateWorkPreferences,
-  updateLastJob,
-  submitProfile,
   completeProfile,
 } = require('../controllers/providerController');
 const { protectProvider } = require('../middleware/auth');
@@ -53,29 +49,9 @@ router.get('/list', listProviders);
 router.get('/me', protectProvider, getMe);
 router.put('/me', protectProvider, updateMyProfile);
 
-// Profile-completion wizard (all require the provider's own login token):
-// Step 1/4 — General info: age, marital status, PAN, profile photo and/or
-// ID document re-upload (both files optional — only sent if changed).
-router.patch(
-  '/me/general-info',
-  protectProvider,
-  registerUpload.fields([
-    { name: 'photo', maxCount: 1 },
-    { name: 'idDocument', maxCount: 1 },
-  ]),
-  updateGeneralInfo
-);
-// Step 2/4 — Work preferences: experience, expected salary, preferred
-// service, work duration, languages, skills, education.
-router.patch('/me/work-preferences', protectProvider, updateWorkPreferences);
-// Step 3/4 — Last job: most recent work experience details.
-router.patch('/me/last-job', protectProvider, updateLastJob);
-// Step 4/4 — Review & submit: marks the profile complete and (re)submits
-// it for admin review.
-router.post('/me/submit', protectProvider, submitProfile);
-
-// One-shot alternative to the 4 steps above, for a frontend that collects
-// everything itself and submits once. See completeProfile for the body shape.
+// Profile completion (requires the provider's own login token): submits
+// General info + Work preferences + Last job from the 4-step form in one
+// call. See completeProfile in the controller for the body shape.
 router.post(
   '/me/complete-profile',
   protectProvider,
