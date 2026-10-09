@@ -1,25 +1,14 @@
 const Provider = require('../models/Provider');
 const MESSAGES = require('../config/errorMessages.json');
 
-const serializeProviderForAdmin = (provider) => ({
-  id: provider._id,
-  email: provider.email,
-  fullName: provider.fullName,
-  gender: provider.gender,
-  nationality: provider.nationality,
-  categoryId: provider.categoryId,
-  area: provider.area,
-  city: provider.city,
-  mobileNumber: provider.mobileNumber,
-  whatsappNumber: provider.whatsappNumber,
-  experienceYears: provider.experienceYears,
-  imageUrl: provider.imageUrl,
-  kyc: provider.kyc,
-  applicationStatus: provider.applicationStatus,
-  rejectionReason: provider.rejectionReason,
-  isActive: provider.isActive,
-  createdAt: provider.createdAt,
-});
+// Admin is a trusted, internal-only view, so this returns the full provider
+// document (unlike the public listMaids/getProviderById in providerController,
+// which deliberately hide kyc.idNumber) — only the password hash and the
+// internal mobileNumberDigits index field are stripped.
+const serializeProviderForAdmin = (provider) => {
+  const { _id, password, mobileNumberDigits, __v, ...rest } = provider.toObject();
+  return { id: _id, ...rest };
+};
 
 exports.listProviders = async (req, res, next) => {
   try {

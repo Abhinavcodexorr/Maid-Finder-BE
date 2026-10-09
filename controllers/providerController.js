@@ -145,9 +145,18 @@ exports.login = async (req, res, next) => {
   }
 };
 
+// Full self-view for the logged-in provider's own "My Account" / "My
+// Profile" screen — every field except password and the internal
+// mobileNumberDigits index (unlike serializeProvider used for
+// register/login responses, which only returns a curated subset).
+const serializeProviderFull = (provider) => {
+  const { _id, password, mobileNumberDigits, __v, ...rest } = provider.toObject();
+  return { id: _id, ...rest };
+};
+
 exports.getMe = async (req, res, next) => {
   try {
-    res.json({ success: true, provider: req.provider });
+    res.json({ success: true, provider: serializeProviderFull(req.provider) });
   } catch (error) {
     next(error);
   }
@@ -183,7 +192,7 @@ exports.updateMyProfile = async (req, res, next) => {
     });
     if (req.body.password) provider.password = req.body.password;
     await provider.save();
-    res.json({ success: true, provider });
+    res.json({ success: true, provider: serializeProviderFull(provider) });
   } catch (error) {
     next(error);
   }
@@ -200,7 +209,7 @@ exports.updateProvider = async (req, res, next) => {
     });
     if (req.body.password) provider.password = req.body.password;
     await provider.save();
-    res.json({ success: true, provider });
+    res.json({ success: true, provider: serializeProviderFull(provider) });
   } catch (error) {
     next(error);
   }
