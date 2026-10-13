@@ -185,6 +185,11 @@ const providerSchema = new mongoose.Schema(
       idNumber: { type: String, trim: true },
       idDocumentUrl: { type: String, trim: true },
     },
+    // Optional "introduce yourself" video from the Review & submit step.
+    introVideoUrl: {
+      type: String,
+      trim: true,
+    },
     applicationStatus: {
       type: String,
       enum: ['pending', 'approved', 'rejected'],

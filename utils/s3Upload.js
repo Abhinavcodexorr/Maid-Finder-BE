@@ -10,6 +10,11 @@ const EXTENSION_BY_MIME = {
   'image/gif': 'gif',
   'image/webp': 'webp',
   'application/pdf': 'pdf',
+  'video/mp4': 'mp4',
+  'video/quicktime': 'mov',
+  'video/webm': 'webm',
+  'video/x-matroska': 'mkv',
+  'video/3gpp': '3gp',
 };
 
 const uploadBufferToS3 = async (buffer, mimetype, folder) => {

@@ -18,30 +18,52 @@ const router = express.Router();
 
 const IMAGE_MIMETYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const ID_DOCUMENT_MIMETYPES = [...IMAGE_MIMETYPES, 'application/pdf'];
+const VIDEO_MIMETYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska', 'video/3gpp'];
+
+const photoAndIdFilter = (req, file, cb) => {
+  if (file.fieldname === 'photo') {
+    if (!IMAGE_MIMETYPES.includes(file.mimetype)) {
+      const error = new Error(MESSAGES.provider.photoInvalidType);
+      error.statusCode = 400;
+      return cb(error, false);
+    }
+    return cb(null, true);
+  }
+  if (file.fieldname === 'idDocument') {
+    if (!ID_DOCUMENT_MIMETYPES.includes(file.mimetype)) {
+      const error = new Error(MESSAGES.provider.idDocumentInvalidType);
+      error.statusCode = 400;
+      return cb(error, false);
+    }
+    return cb(null, true);
+  }
+  const error = new Error(formatMessage(MESSAGES.provider.unexpectedFileField, { field: file.fieldname }));
+  error.statusCode = 400;
+  cb(error, false);
+};
 
 const registerUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: photoAndIdFilter,
+});
+
+// Same photo/idDocument rules as registerUpload, plus an optional intro
+// video — given its own, much larger size limit (videos are expected to
+// run from 30s up to 5 minutes per the product's walkthrough).
+const completeProfileUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (file.fieldname === 'photo') {
-      if (!IMAGE_MIMETYPES.includes(file.mimetype)) {
-        const error = new Error(MESSAGES.provider.photoInvalidType);
+    if (file.fieldname === 'video') {
+      if (!VIDEO_MIMETYPES.includes(file.mimetype)) {
+        const error = new Error(MESSAGES.provider.videoInvalidType);
         error.statusCode = 400;
         return cb(error, false);
       }
       return cb(null, true);
     }
-    if (file.fieldname === 'idDocument') {
-      if (!ID_DOCUMENT_MIMETYPES.includes(file.mimetype)) {
-        const error = new Error(MESSAGES.provider.idDocumentInvalidType);
-        error.statusCode = 400;
-        return cb(error, false);
-      }
-      return cb(null, true);
-    }
-    const error = new Error(formatMessage(MESSAGES.provider.unexpectedFileField, { field: file.fieldname }));
-    error.statusCode = 400;
-    cb(error, false);
+    return photoAndIdFilter(req, file, cb);
   },
 });
 
@@ -55,9 +77,10 @@ router.put('/me', protectProvider, updateMyProfile);
 router.post(
   '/me/complete-profile',
   protectProvider,
-  registerUpload.fields([
+  completeProfileUpload.fields([
     { name: 'photo', maxCount: 1 },
     { name: 'idDocument', maxCount: 1 },
+    { name: 'video', maxCount: 1 },
   ]),
   completeProfile
 );

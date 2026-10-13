@@ -28,6 +28,7 @@ const serializeProvider = (provider) => ({
     idType: provider.kyc.idType,
     idDocumentUrl: provider.kyc.idDocumentUrl,
   },
+  introVideoUrl: provider.introVideoUrl,
   applicationStatus: provider.applicationStatus,
 });
 
@@ -274,12 +275,15 @@ exports.completeProfile = async (req, res, next) => {
 
     const photoFile = req.files?.photo?.[0];
     const idDocumentFile = req.files?.idDocument?.[0];
-    const [imageUrl, idDocumentUrl] = await Promise.all([
+    const videoFile = req.files?.video?.[0];
+    const [imageUrl, idDocumentUrl, introVideoUrl] = await Promise.all([
       photoFile ? uploadBufferToS3(photoFile.buffer, photoFile.mimetype, 'help-zone/photos') : null,
       idDocumentFile ? uploadBufferToS3(idDocumentFile.buffer, idDocumentFile.mimetype, 'help-zone/kyc') : null,
+      videoFile ? uploadBufferToS3(videoFile.buffer, videoFile.mimetype, 'help-zone/videos') : null,
     ]);
     if (imageUrl) provider.imageUrl = imageUrl;
     if (idDocumentUrl) provider.kyc.idDocumentUrl = idDocumentUrl;
+    if (introVideoUrl) provider.introVideoUrl = introVideoUrl;
 
     markSubmittedForReview(provider);
     await provider.save();

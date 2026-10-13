@@ -35,6 +35,7 @@
     "notAuthorizedToUpdate": "Not authorized to update this provider",
     "photoInvalidType": "Photo must be an image (jpeg, jpg, png or webp)",
     "idDocumentInvalidType": "ID document must be an image (jpeg, jpg, png, webp) or PDF",
+    "videoInvalidType": "Video must be in a supported format (mp4, mov, webm, mkv or 3gp)",
     "unexpectedFileField": "Unexpected file field: {field}"
   },
   "customer": {
@@ -56,7 +57,7 @@
     "noFileProvided": "No image file provided",
     "s3NotConfigured": "S3 bucket not configured",
     "invalidFileType": "Only images (jpeg, jpg, png, gif, webp) are allowed",
-    "fileTooLarge": "Image size must be less than 5MB"
+    "fileTooLarge": "File size exceeds the allowed limit"
   },
   "validation": {
     "failed": "Validation failed"
