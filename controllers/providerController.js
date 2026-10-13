@@ -24,10 +24,10 @@ const serializeProvider = (provider) => ({
   phone: provider.phone,
   whatsapp: provider.whatsapp,
   bio: provider.bio,
-  kyc: provider.kyc && {
-    idType: provider.kyc.idType,
-    idDocumentUrl: provider.kyc.idDocumentUrl,
-  },
+  kycDocuments: (provider.kycDocuments || []).map((doc) => ({
+    idType: doc.idType,
+    idDocumentUrl: doc.idDocumentUrl,
+  })),
   introVideoUrl: provider.introVideoUrl,
   applicationStatus: provider.applicationStatus,
 });
@@ -84,11 +84,7 @@ exports.register = async (req, res, next) => {
       mobileNumber,
       whatsappNumber,
       imageUrl,
-      kyc: {
-        idType,
-        idNumber,
-        idDocumentUrl,
-      },
+      kycDocuments: [{ idType, idNumber, idDocumentUrl }],
       applicationStatus: 'pending',
     });
 
@@ -151,9 +147,12 @@ exports.login = async (req, res, next) => {
 // Profile" screen — every field except password and the internal
 // mobileNumberDigits index (unlike serializeProvider used for
 // register/login responses, which only returns a curated subset).
+// Also includes a derived `kyc` (first kycDocuments entry) alongside the
+// real `kycDocuments` array, for any consumer still built against the old
+// single-document shape.
 const serializeProviderFull = (provider) => {
   const { _id, password, mobileNumberDigits, __v, ...rest } = provider.toObject();
-  return { id: _id, ...rest };
+  return { id: _id, ...rest, kyc: rest.kycDocuments?.[0] };
 };
 
 exports.getMe = async (req, res, next) => {
@@ -166,7 +165,7 @@ exports.getMe = async (req, res, next) => {
 
 exports.getProviderById = async (req, res, next) => {
   try {
-    const provider = await Provider.findById(req.params.id).select('-kyc.idNumber -mobileNumberDigits');
+    const provider = await Provider.findById(req.params.id).select('-kycDocuments.idNumber -mobileNumberDigits');
     if (!provider) {
       return res.status(404).json({ success: false, message: MESSAGES.provider.notFound });
     }
@@ -258,8 +257,6 @@ exports.completeProfile = async (req, res, next) => {
     if (generalInfo.age !== undefined) provider.age = generalInfo.age;
     if (generalInfo.maritalStatus !== undefined) provider.maritalStatus = generalInfo.maritalStatus;
     if (generalInfo.panNumber !== undefined) provider.panNumber = generalInfo.panNumber;
-    if (generalInfo.idType !== undefined) provider.kyc.idType = generalInfo.idType;
-    if (generalInfo.idNumber !== undefined) provider.kyc.idNumber = generalInfo.idNumber;
 
     if (workPreferences.categoryIds !== undefined) {
       provider.categoryIds = normalizeCategoryIds(workPreferences.categoryIds);
@@ -274,16 +271,32 @@ exports.completeProfile = async (req, res, next) => {
     if (lastJob.jobDescription !== undefined) provider.jobDescription = lastJob.jobDescription;
 
     const photoFile = req.files?.photo?.[0];
-    const idDocumentFile = req.files?.idDocument?.[0];
     const videoFile = req.files?.video?.[0];
-    const [imageUrl, idDocumentUrl, introVideoUrl] = await Promise.all([
+    const [imageUrl, introVideoUrl] = await Promise.all([
       photoFile ? uploadBufferToS3(photoFile.buffer, photoFile.mimetype, 'help-zone/photos') : null,
-      idDocumentFile ? uploadBufferToS3(idDocumentFile.buffer, idDocumentFile.mimetype, 'help-zone/kyc') : null,
       videoFile ? uploadBufferToS3(videoFile.buffer, videoFile.mimetype, 'help-zone/videos') : null,
     ]);
     if (imageUrl) provider.imageUrl = imageUrl;
-    if (idDocumentUrl) provider.kyc.idDocumentUrl = idDocumentUrl;
     if (introVideoUrl) provider.introVideoUrl = introVideoUrl;
+
+    // Multiple ID proofs: generalInfo.idProofs is an array of
+    // { idType, idNumber }, paired by position with files uploaded under
+    // the `idDocuments` field (same order). Sending either one replaces
+    // the whole kycDocuments list — same full-replace behavior as
+    // languages/skills above, not a per-entry merge.
+    const idDocumentFiles = req.files?.idDocuments || [];
+    if (generalInfo.idProofs !== undefined || idDocumentFiles.length) {
+      const idProofsMeta = Array.isArray(generalInfo.idProofs) ? generalInfo.idProofs : [];
+      const idDocumentUrls = await Promise.all(
+        idDocumentFiles.map((file) => uploadBufferToS3(file.buffer, file.mimetype, 'help-zone/kyc'))
+      );
+      const count = Math.max(idProofsMeta.length, idDocumentUrls.length);
+      provider.kycDocuments = Array.from({ length: count }, (_, i) => ({
+        idType: idProofsMeta[i]?.idType,
+        idNumber: idProofsMeta[i]?.idNumber,
+        idDocumentUrl: idDocumentUrls[i],
+      }));
+    }
 
     markSubmittedForReview(provider);
     await provider.save();
@@ -330,7 +343,7 @@ exports.listProviders = async (req, res, next) => {
 
     const skip = (Number(page) - 1) * Number(limit);
     const providers = await Provider.find(query)
-      .select('-kyc.idNumber -mobileNumberDigits')
+      .select('-kycDocuments.idNumber -mobileNumberDigits')
       .skip(skip)
       .limit(Number(limit))
       .sort({ createdAt: -1 });

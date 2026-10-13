@@ -4,11 +4,14 @@ const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
 
 // Admin is a trusted, internal-only view, so this returns the full provider
 // document (unlike the public listMaids/getProviderById in providerController,
-// which deliberately hide kyc.idNumber) — only the password hash and the
-// internal mobileNumberDigits index field are stripped.
+// which deliberately hide kycDocuments.idNumber) — only the password hash
+// and the internal mobileNumberDigits index field are stripped. Also
+// includes a derived `kyc` (first kycDocuments entry) alongside the real
+// kycDocuments array, for any consumer still built against the old
+// single-document shape.
 const serializeProviderForAdmin = (provider) => {
   const { _id, password, mobileNumberDigits, __v, ...rest } = provider.toObject();
-  return { id: _id, ...rest };
+  return { id: _id, ...rest, kyc: rest.kycDocuments?.[0] };
 };
 
 exports.listProviders = async (req, res, next) => {
@@ -23,7 +26,7 @@ exports.listProviders = async (req, res, next) => {
     }
     if (q && q.trim()) {
       const regex = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      query.$or = [{ fullName: regex }, { email: regex }, { city: regex }, { 'kyc.idNumber': regex }];
+      query.$or = [{ fullName: regex }, { email: regex }, { city: regex }, { 'kycDocuments.idNumber': regex }];
     }
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -104,9 +107,12 @@ exports.updateProvider = async (req, res, next) => {
     for (const field of EDITABLE_FIELDS) {
       if (req.body[field] !== undefined) provider[field] = req.body[field];
     }
-    if (req.body.kyc && typeof req.body.kyc === 'object') {
-      if (req.body.kyc.idType !== undefined) provider.kyc.idType = req.body.kyc.idType;
-      if (req.body.kyc.idNumber !== undefined) provider.kyc.idNumber = req.body.kyc.idNumber;
+    if (Array.isArray(req.body.kycDocuments)) {
+      provider.kycDocuments = req.body.kycDocuments.map((doc) => ({
+        idType: doc.idType,
+        idNumber: doc.idNumber,
+        idDocumentUrl: doc.idDocumentUrl,
+      }));
     }
 
     await provider.save();

@@ -180,11 +180,15 @@ const providerSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    kyc: {
-      idType: { type: String, trim: true },
-      idNumber: { type: String, trim: true },
-      idDocumentUrl: { type: String, trim: true },
-    },
+    // A provider can submit more than one ID proof (e.g. Aadhaar + PAN +
+    // passport), so this is a list instead of a single object.
+    kycDocuments: [
+      {
+        idType: { type: String, trim: true },
+        idNumber: { type: String, trim: true },
+        idDocumentUrl: { type: String, trim: true },
+      },
+    ],
     // Optional "introduce yourself" video from the Review & submit step.
     introVideoUrl: {
       type: String,

@@ -29,7 +29,7 @@ const photoAndIdFilter = (req, file, cb) => {
     }
     return cb(null, true);
   }
-  if (file.fieldname === 'idDocument') {
+  if (file.fieldname === 'idDocument' || file.fieldname === 'idDocuments') {
     if (!ID_DOCUMENT_MIMETYPES.includes(file.mimetype)) {
       const error = new Error(MESSAGES.provider.idDocumentInvalidType);
       error.statusCode = 400;
@@ -79,7 +79,7 @@ router.post(
   protectProvider,
   completeProfileUpload.fields([
     { name: 'photo', maxCount: 1 },
-    { name: 'idDocument', maxCount: 1 },
+    { name: 'idDocuments', maxCount: 10 },
     { name: 'video', maxCount: 1 },
   ]),
   completeProfile
