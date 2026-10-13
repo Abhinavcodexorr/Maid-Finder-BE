@@ -13,6 +13,7 @@ const serializeProvider = (provider) => ({
   categoryIds: provider.categoryIds,
   area: provider.area,
   city: provider.city,
+  state: provider.state,
   mobileNumber: provider.mobileNumber,
   whatsappNumber: provider.whatsappNumber,
   emirate: provider.emirate,
@@ -36,30 +37,33 @@ exports.register = async (req, res, next) => {
   try {
     const {
       fullName,
+      firstName,
+      lastName,
       gender,
       nationality,
       categoryIds,
       area,
       city,
+      state,
       mobileNumber,
       whatsappNumber,
       email,
       password,
+      agreedToTerms,
+      // Photo/ID document are NOT collected at signup in the current
+      // registration screen (that happens later, in the KYC step of
+      // complete-profile) — these are only honored if a client does send
+      // them, never required.
       idType,
       idNumber,
     } = req.body;
 
-    if (!fullName || !email || !password) {
-      return res.status(400).json({ success: false, message: MESSAGES.provider.registerFieldsRequired });
-    }
+    // The signup screen collects firstName/lastName separately; fullName
+    // stays the canonical stored field, composed from the two if needed.
+    const resolvedFullName = (fullName || `${firstName || ''} ${lastName || ''}`).trim();
 
-    const photoFile = req.files?.photo?.[0];
-    const idDocumentFile = req.files?.idDocument?.[0];
-    if (!photoFile) {
-      return res.status(400).json({ success: false, message: MESSAGES.provider.photoRequired });
-    }
-    if (!idDocumentFile) {
-      return res.status(400).json({ success: false, message: MESSAGES.provider.idDocumentRequired });
+    if (!resolvedFullName || !email || !password) {
+      return res.status(400).json({ success: false, message: MESSAGES.provider.registerFieldsRequired });
     }
 
     const existingProvider = await Provider.findOne({ email });
@@ -67,24 +71,29 @@ exports.register = async (req, res, next) => {
       return res.status(400).json({ success: false, message: MESSAGES.provider.emailAlreadyRegistered });
     }
 
+    const photoFile = req.files?.photo?.[0];
+    const idDocumentFile = req.files?.idDocument?.[0];
     const [imageUrl, idDocumentUrl] = await Promise.all([
-      uploadBufferToS3(photoFile.buffer, photoFile.mimetype, 'help-zone/photos'),
-      uploadBufferToS3(idDocumentFile.buffer, idDocumentFile.mimetype, 'help-zone/kyc'),
+      photoFile ? uploadBufferToS3(photoFile.buffer, photoFile.mimetype, 'help-zone/photos') : null,
+      idDocumentFile ? uploadBufferToS3(idDocumentFile.buffer, idDocumentFile.mimetype, 'help-zone/kyc') : null,
     ]);
 
     const provider = await Provider.create({
       email,
       password,
-      fullName,
+      fullName: resolvedFullName,
       gender,
       nationality,
       categoryIds: normalizeCategoryIds(categoryIds),
       area,
       city,
+      state,
       mobileNumber,
       whatsappNumber,
-      imageUrl,
-      kycDocuments: [{ idType, idNumber, idDocumentUrl }],
+      imageUrl: imageUrl || undefined,
+      kycDocuments: idDocumentUrl ? [{ idType, idNumber, idDocumentUrl }] : [],
+      agreedToTerms: Boolean(agreedToTerms),
+      agreedToTermsAt: agreedToTerms ? new Date() : undefined,
       applicationStatus: 'pending',
     });
 
@@ -176,7 +185,7 @@ exports.getProviderById = async (req, res, next) => {
 };
 
 const ALLOWED_PROFILE_FIELDS = [
-  'fullName', 'gender', 'nationality', 'categoryIds', 'area', 'city',
+  'fullName', 'gender', 'nationality', 'categoryIds', 'area', 'city', 'state',
   'mobileNumber', 'whatsappNumber', 'emirate', 'visaStatus', 'experienceYears',
   'monthlySalary', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
   'age', 'panNumber', 'maritalStatus', 'religion', 'hasPassport', 'visaExpiryDate', 'availability',
@@ -256,7 +265,10 @@ exports.completeProfile = async (req, res, next) => {
 
     if (generalInfo.age !== undefined) provider.age = generalInfo.age;
     if (generalInfo.maritalStatus !== undefined) provider.maritalStatus = generalInfo.maritalStatus;
+    if (generalInfo.religion !== undefined) provider.religion = generalInfo.religion;
     if (generalInfo.panNumber !== undefined) provider.panNumber = generalInfo.panNumber;
+    if (generalInfo.state !== undefined) provider.state = generalInfo.state;
+    if (generalInfo.city !== undefined) provider.city = generalInfo.city;
 
     if (workPreferences.categoryIds !== undefined) {
       provider.categoryIds = normalizeCategoryIds(workPreferences.categoryIds);

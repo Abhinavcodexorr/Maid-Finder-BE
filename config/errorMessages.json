@@ -24,9 +24,7 @@
     "providerNotFound": "Provider not found"
   },
   "provider": {
-    "registerFieldsRequired": "fullName, email and password are required",
-    "photoRequired": "A photo of yourself is required",
-    "idDocumentRequired": "An ID document is required",
+    "registerFieldsRequired": "fullName (or firstName/lastName), email and password are required",
     "emailAlreadyRegistered": "Email already registered",
     "loginFieldsRequired": "Email/phone and password are required",
     "invalidCredentials": "Invalid email/phone or password",

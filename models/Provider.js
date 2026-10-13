@@ -43,6 +43,10 @@ const providerSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    state: {
+      type: String,
+      trim: true,
+    },
     mobileNumber: {
       type: String,
       trim: true,
@@ -193,6 +197,13 @@ const providerSchema = new mongoose.Schema(
     introVideoUrl: {
       type: String,
       trim: true,
+    },
+    agreedToTerms: {
+      type: Boolean,
+      default: false,
+    },
+    agreedToTermsAt: {
+      type: Date,
     },
     applicationStatus: {
       type: String,
