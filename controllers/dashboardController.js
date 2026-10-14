@@ -14,7 +14,7 @@ exports.getDashboard = async (req, res, next) => {
         .sort({ scheduledDate: -1 })
         .limit(10),
       Favourite.find({ user: userId })
-        .populate('maid', 'fullName email phone imageUrl monthlySalary skills emirate nationality visaStatus')
+        .populate('maid', 'fullName email phone imageUrl monthlySalary skills emirate nationality')
         .sort({ createdAt: -1 }),
     ]);
     const favouriteProviders = favourites.map((f) => f.maid);

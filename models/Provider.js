@@ -66,10 +66,6 @@ const providerSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    visaStatus: {
-      type: String,
-      trim: true,
-    },
     experienceYears: {
       type: Number,
       min: [0, 'Experience cannot be negative'],
@@ -123,13 +119,6 @@ const providerSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    hasPassport: {
-      type: Boolean,
-      default: false,
-    },
-    visaExpiryDate: {
-      type: Date,
-    },
     availability: {
       type: String,
       trim: true,
@@ -171,14 +160,6 @@ const providerSchema = new mongoose.Schema(
     jobDescription: {
       type: String,
       maxlength: [2000, 'Job description cannot exceed 2000 characters'],
-    },
-    hasReferenceLetter: {
-      type: Boolean,
-      default: false,
-    },
-    referenceLetterUrl: {
-      type: String,
-      trim: true,
     },
     profileComplete: {
       type: Boolean,

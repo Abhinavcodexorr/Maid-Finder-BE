@@ -41,7 +41,7 @@ exports.removeFavourite = async (req, res, next) => {
 exports.getMyFavourites = async (req, res, next) => {
   try {
     const favourites = await Favourite.find({ user: req.user._id })
-      .populate('maid', 'fullName email phone imageUrl monthlySalary skills emirate nationality visaStatus')
+      .populate('maid', 'fullName email phone imageUrl monthlySalary skills emirate nationality')
       .sort({ createdAt: -1 });
     res.json({
       success: true,

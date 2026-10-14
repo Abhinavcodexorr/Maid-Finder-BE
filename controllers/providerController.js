@@ -17,7 +17,6 @@ const serializeProvider = (provider) => ({
   mobileNumber: provider.mobileNumber,
   whatsappNumber: provider.whatsappNumber,
   emirate: provider.emirate,
-  visaStatus: provider.visaStatus,
   experienceYears: provider.experienceYears,
   monthlySalary: provider.monthlySalary,
   skills: provider.skills,
@@ -186,11 +185,11 @@ exports.getProviderById = async (req, res, next) => {
 
 const ALLOWED_PROFILE_FIELDS = [
   'fullName', 'gender', 'nationality', 'categoryIds', 'area', 'city', 'state',
-  'mobileNumber', 'whatsappNumber', 'emirate', 'visaStatus', 'experienceYears',
+  'mobileNumber', 'whatsappNumber', 'emirate', 'experienceYears',
   'monthlySalary', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
-  'age', 'panNumber', 'maritalStatus', 'religion', 'hasPassport', 'visaExpiryDate', 'availability',
+  'age', 'panNumber', 'maritalStatus', 'religion', 'availability',
   'preferredJob', 'duration', 'languages', 'education', 'certificate',
-  'lastWorkingExperience', 'jobDescription', 'hasReferenceLetter', 'referenceLetterUrl',
+  'lastWorkingExperience', 'jobDescription',
   'profileComplete',
 ];
 
