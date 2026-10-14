@@ -41,6 +41,7 @@ exports.register = async (req, res, next) => {
       gender,
       nationality,
       categoryIds,
+      categoryId, // legacy pre-rename name, used as a fallback below
       area,
       city,
       state,
@@ -83,7 +84,7 @@ exports.register = async (req, res, next) => {
       fullName: resolvedFullName,
       gender,
       nationality,
-      categoryIds: normalizeCategoryIds(categoryIds),
+      categoryIds: normalizeCategoryIds(categoryIds ?? categoryId),
       area,
       city,
       state,
@@ -195,10 +196,17 @@ const ALLOWED_PROFILE_FIELDS = [
 
 // categoryIds needs its comma-string-or-array normalization applied even
 // through the generic field list, so it can't just be assigned as-is.
+// Also falls back to the pre-rename field names (categoryId,
+// monthlySalaryAed) if the current ones aren't present in the body.
 const applyAllowedFields = (provider, body) => {
+  const resolvedCategoryIds = body.categoryIds ?? body.categoryId;
+  if (resolvedCategoryIds !== undefined) provider.categoryIds = normalizeCategoryIds(resolvedCategoryIds);
+  if (body.monthlySalary === undefined && body.monthlySalaryAed !== undefined) {
+    body.monthlySalary = body.monthlySalaryAed;
+  }
   ALLOWED_PROFILE_FIELDS.forEach((key) => {
-    if (body[key] === undefined) return;
-    provider[key] = key === 'categoryIds' ? normalizeCategoryIds(body[key]) : body[key];
+    if (key === 'categoryIds' || body[key] === undefined) return;
+    provider[key] = body[key];
   });
 };
 
@@ -269,8 +277,15 @@ exports.completeProfile = async (req, res, next) => {
     if (generalInfo.state !== undefined) provider.state = generalInfo.state;
     if (generalInfo.city !== undefined) provider.city = generalInfo.city;
 
-    if (workPreferences.categoryIds !== undefined) {
-      provider.categoryIds = normalizeCategoryIds(workPreferences.categoryIds);
+    // Backward compatibility: the client may still be sending the pre-rename
+    // field names (categoryId -> categoryIds, monthlySalaryAed ->
+    // monthlySalary). Fall back to those if the current name isn't present.
+    const resolvedCategoryIds = workPreferences.categoryIds ?? workPreferences.categoryId;
+    if (resolvedCategoryIds !== undefined) {
+      provider.categoryIds = normalizeCategoryIds(resolvedCategoryIds);
+    }
+    if (workPreferences.monthlySalary === undefined && workPreferences.monthlySalaryAed !== undefined) {
+      workPreferences.monthlySalary = workPreferences.monthlySalaryAed;
     }
     WORK_PREFERENCES_FIELDS.forEach((key) => {
       if (workPreferences[key] !== undefined) provider[key] = workPreferences[key];
