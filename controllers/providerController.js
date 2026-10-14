@@ -296,9 +296,18 @@ exports.completeProfile = async (req, res, next) => {
     // the `idDocuments` field (same order). Sending either one replaces
     // the whole kycDocuments list — same full-replace behavior as
     // languages/skills above, not a per-entry merge.
-    const idDocumentFiles = req.files?.idDocuments || [];
-    if (generalInfo.idProofs !== undefined || idDocumentFiles.length) {
-      const idProofsMeta = Array.isArray(generalInfo.idProofs) ? generalInfo.idProofs : [];
+    //
+    // Backward compatibility: older clients send a single file under the
+    // legacy `idDocument` field name, with flat generalInfo.idType/
+    // idNumber instead of an idProofs array. Both are folded in here as
+    // a single-entry equivalent.
+    const legacyIdDocumentFile = req.files?.idDocument?.[0];
+    const idDocumentFiles = [...(req.files?.idDocuments || []), ...(legacyIdDocumentFile ? [legacyIdDocumentFile] : [])];
+    let idProofsMeta = Array.isArray(generalInfo.idProofs) ? generalInfo.idProofs : [];
+    if (!idProofsMeta.length && (generalInfo.idType !== undefined || generalInfo.idNumber !== undefined)) {
+      idProofsMeta = [{ idType: generalInfo.idType, idNumber: generalInfo.idNumber }];
+    }
+    if (idProofsMeta.length || idDocumentFiles.length) {
       const idDocumentUrls = await Promise.all(
         idDocumentFiles.map((file) => uploadBufferToS3(file.buffer, file.mimetype, 'help-zone/kyc'))
       );

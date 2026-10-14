@@ -50,7 +50,7 @@ const registerUpload = multer({
 
 // Same photo/idDocument rules as registerUpload, plus an optional intro
 // video — given its own, much larger size limit (videos are expected to
-// run from 30s up to 5 minutes per the product's walkthrough).
+// run from 1 to 5 minutes per the product's walkthrough).
 const completeProfileUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 100 * 1024 * 1024 },
@@ -80,6 +80,9 @@ router.post(
   completeProfileUpload.fields([
     { name: 'photo', maxCount: 1 },
     { name: 'idDocuments', maxCount: 10 },
+    // Legacy single-file name, kept for clients still sending one ID
+    // document under the old field name instead of the new plural one.
+    { name: 'idDocument', maxCount: 1 },
     { name: 'video', maxCount: 1 },
   ]),
   completeProfile
