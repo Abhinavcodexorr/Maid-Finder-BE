@@ -1,11 +1,12 @@
 const express = require('express');
 const adminAuth = require('../middleware/adminAuth');
-const { listProviders, verifyProvider, approveProvider, rejectProvider, updateProvider, deleteProvider } = require('../controllers/adminController');
+const { listProviders, providersSummary, verifyProvider, approveProvider, rejectProvider, updateProvider, deleteProvider } = require('../controllers/adminController');
 
 const router = express.Router();
 
 router.use(adminAuth);
 
+router.get('/providers/summary', providersSummary);
 router.get('/providers', listProviders);
 router.patch('/providers/:id/verify', verifyProvider);
 router.patch('/providers/:id/approve', approveProvider);

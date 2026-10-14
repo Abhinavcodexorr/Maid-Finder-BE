@@ -66,6 +66,41 @@ exports.listProviders = async (req, res, next) => {
   }
 };
 
+// Cheap snapshot for the admin panel's 3-second notification poll: per-stage
+// totals plus the most recent registrations, so the panel can spot a provider
+// it hasn't seen yet without downloading the full list every time.
+exports.providersSummary = async (req, res, next) => {
+  try {
+    const [grouped, latest] = await Promise.all([
+      Provider.aggregate([{ $group: { _id: '$applicationStatus', count: { $sum: 1 } } }]),
+      Provider.find()
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .select('fullName city state imageUrl applicationStatus createdAt'),
+    ]);
+    const counts = Object.fromEntries(APPLICATION_STATUS.map((name) => [name, 0]));
+    grouped.forEach(({ _id, count }) => {
+      if (_id in counts) counts[_id] = count;
+    });
+    res.json({
+      success: true,
+      total: Object.values(counts).reduce((sum, n) => sum + n, 0),
+      counts,
+      latest: latest.map((p) => ({
+        id: p._id,
+        fullName: p.fullName,
+        city: p.city,
+        state: p.state,
+        imageUrl: p.imageUrl,
+        applicationStatus: p.applicationStatus,
+        createdAt: p.createdAt,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // The review pipeline is strictly pending -> verification -> approved|rejected.
 // Each step is a single conditional update (the status check is part of the
 // query), so two admins acting on the same provider can't both succeed or
