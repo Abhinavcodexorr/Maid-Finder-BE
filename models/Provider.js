@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const { MARITAL_STATUS } = require('../config/constants');
+const { MARITAL_STATUS, APPLICATION_STATUS } = require('../config/constants');
 
 const providerSchema = new mongoose.Schema(
   {
@@ -188,7 +188,7 @@ const providerSchema = new mongoose.Schema(
     },
     applicationStatus: {
       type: String,
-      enum: ['pending', 'approved', 'rejected'],
+      enum: APPLICATION_STATUS,
       default: 'pending',
     },
     rejectionReason: {

@@ -26,10 +26,17 @@ const allowedOrigins = [
   "https://maid-finder-kvrx.vercel.app"
 ];
 
+// Next.js dev servers pick whatever port is free (3000, 3001, 3002, ...), so
+// a fixed allowlist constantly falls out of date. Any http://localhost:<port>
+// is only reachable from the developer's own machine anyway, so it's safe to
+// allow broadly instead of one port at a time.
+const isAllowedOrigin = (origin) =>
+  allowedOrigins.includes(origin) || /^http:\/\/localhost:\d+$/.test(origin);
+
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || isAllowedOrigin(origin)) {
         callback(null, true);
       } else {
         callback(new Error(MESSAGES.server.corsNotAllowed));

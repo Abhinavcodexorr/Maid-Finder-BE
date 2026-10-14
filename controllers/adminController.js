@@ -1,6 +1,8 @@
 const Provider = require('../models/Provider');
 const MESSAGES = require('../config/errorMessages.json');
 const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
+const formatMessage = require('../utils/formatMessage');
+const { APPLICATION_STATUS } = require('../config/constants');
 
 // Admin is a trusted, internal-only view, so this returns the full provider
 // document (unlike the public listMaids/getProviderById in providerController,
@@ -19,7 +21,15 @@ exports.listProviders = async (req, res, next) => {
     const { status, categoryId, q, page = 1, limit = 20 } = req.query;
     const query = {};
 
-    if (status && status !== 'all') query.applicationStatus = status;
+    if (status && status !== 'all') {
+      if (!APPLICATION_STATUS.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: formatMessage(MESSAGES.admin.invalidStatus, { allowed: APPLICATION_STATUS.join(', ') }),
+        });
+      }
+      query.applicationStatus = status;
+    }
     if (categoryId) {
       const categoryArr = normalizeCategoryIds(categoryId);
       if (categoryArr.length) query.categoryIds = { $in: categoryArr };
@@ -30,15 +40,23 @@ exports.listProviders = async (req, res, next) => {
     }
 
     const skip = (Number(page) - 1) * Number(limit);
-    const [providers, total] = await Promise.all([
+    const [providers, total, grouped] = await Promise.all([
       Provider.find(query).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
       Provider.countDocuments(query),
+      // Per-stage totals across all providers, regardless of the filters
+      // above, so stage badges stay accurate when the list is paginated.
+      Provider.aggregate([{ $group: { _id: '$applicationStatus', count: { $sum: 1 } } }]),
     ]);
+    const counts = Object.fromEntries(APPLICATION_STATUS.map((name) => [name, 0]));
+    grouped.forEach(({ _id, count }) => {
+      if (_id in counts) counts[_id] = count;
+    });
 
     res.json({
       success: true,
       count: providers.length,
       total,
+      counts,
       page: Number(page),
       pages: Math.ceil(total / Number(limit)),
       data: providers.map(serializeProviderForAdmin),
@@ -48,38 +66,62 @@ exports.listProviders = async (req, res, next) => {
   }
 };
 
-exports.approveProvider = async (req, res, next) => {
+// The review pipeline is strictly pending -> verification -> approved|rejected.
+// Each step is a single conditional update (the status check is part of the
+// query), so two admins acting on the same provider can't both succeed or
+// skip a stage; a refused step answers 409 with the provider's current status.
+const transition = async (req, res, next, { from, to, update = {}, conflictMessage }) => {
   try {
-    const provider = await Provider.findById(req.params.id);
-    if (!provider) {
+    const provider = await Provider.findOneAndUpdate(
+      { _id: req.params.id, applicationStatus: from },
+      { $set: { applicationStatus: to, ...update.set }, ...(update.unset && { $unset: update.unset }) },
+      { new: true, runValidators: true }
+    );
+    if (provider) return res.json({ success: true, data: serializeProviderForAdmin(provider) });
+
+    const existing = await Provider.findById(req.params.id).select('applicationStatus');
+    if (!existing) {
       return res.status(404).json({ success: false, message: MESSAGES.admin.providerNotFound });
     }
-    provider.applicationStatus = 'approved';
-    provider.rejectionReason = undefined;
-    await provider.save();
-    res.json({ success: true, data: serializeProviderForAdmin(provider) });
+    return res.status(409).json({
+      success: false,
+      message: formatMessage(conflictMessage, { status: existing.applicationStatus }),
+      currentStatus: existing.applicationStatus,
+    });
   } catch (error) {
     next(error);
   }
 };
 
-exports.rejectProvider = async (req, res, next) => {
-  try {
-    const { reason } = req.body;
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({ success: false, message: MESSAGES.admin.rejectionReasonRequired });
-    }
-    const provider = await Provider.findById(req.params.id);
-    if (!provider) {
-      return res.status(404).json({ success: false, message: MESSAGES.admin.providerNotFound });
-    }
-    provider.applicationStatus = 'rejected';
-    provider.rejectionReason = reason.trim();
-    await provider.save();
-    res.json({ success: true, data: serializeProviderForAdmin(provider) });
-  } catch (error) {
-    next(error);
+// New request -> verification (the admin is checking the documents).
+exports.verifyProvider = (req, res, next) =>
+  transition(req, res, next, {
+    from: 'pending',
+    to: 'verification',
+    conflictMessage: MESSAGES.admin.verifyRequiresPending,
+  });
+
+// Verification -> approved.
+exports.approveProvider = (req, res, next) =>
+  transition(req, res, next, {
+    from: 'verification',
+    to: 'approved',
+    update: { unset: { rejectionReason: 1 } },
+    conflictMessage: MESSAGES.admin.decisionRequiresVerification,
+  });
+
+// Verification -> rejected, with a mandatory reason.
+exports.rejectProvider = (req, res, next) => {
+  const reason = typeof req.body.reason === 'string' ? req.body.reason.trim() : '';
+  if (!reason) {
+    return res.status(400).json({ success: false, message: MESSAGES.admin.rejectionReasonRequired });
   }
+  return transition(req, res, next, {
+    from: 'verification',
+    to: 'rejected',
+    update: { set: { rejectionReason: reason } },
+    conflictMessage: MESSAGES.admin.decisionRequiresVerification,
+  });
 };
 
 const EDITABLE_FIELDS = [

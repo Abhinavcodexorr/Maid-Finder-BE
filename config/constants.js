@@ -7,6 +7,9 @@ module.exports = {
     'Special Needs Care', 'Private Nurse', 'Driving Experience',
   ],
   DURATION_OPTIONS: ['Part-time', 'Full-time', 'Flexible'],
+  // Review pipeline for provider applications, in order: a new application is
+  // 'pending', an admin moves it to 'verification', then approves or rejects it.
+  APPLICATION_STATUS: ['pending', 'verification', 'approved', 'rejected'],
   BOOKING_STATUS: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'],
   JWT_EXPIRES_IN: '7d',
   RATE_LIMIT_WINDOW_MS: 15 * 60 * 1000, // 15 minutes

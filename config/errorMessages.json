@@ -21,7 +21,10 @@
     "notConfigured": "Admin API is not configured",
     "invalidCredentials": "Invalid admin credentials",
     "rejectionReasonRequired": "A rejection reason is required",
-    "providerNotFound": "Provider not found"
+    "providerNotFound": "Provider not found",
+    "invalidStatus": "status must be one of: {allowed}",
+    "verifyRequiresPending": "Only a new request can be moved to verification (current status: {status})",
+    "decisionRequiresVerification": "Only a provider in verification can be approved or rejected (current status: {status})"
   },
   "provider": {
     "registerFieldsRequired": "fullName (or firstName/lastName), email and password are required",
