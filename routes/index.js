@@ -3,6 +3,7 @@ const providerRoutes = require('./providers');
 const userRoutes = require('./customers');
 const uploadRoutes = require('./upload');
 const adminRoutes = require('./admin');
+const serviceRoutes = require('./services');
 const { logout } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const MESSAGES = require('../config/errorMessages.json');
@@ -17,6 +18,7 @@ router.post('/logout', protect, logout);
 router.use('/upload', uploadRoutes);
 router.use('/providers', providerRoutes);
 router.use('/user', userRoutes);
+router.use('/services', serviceRoutes);
 router.use('/admin', adminRoutes);
 
 module.exports = router;

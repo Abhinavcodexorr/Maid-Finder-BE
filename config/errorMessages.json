@@ -25,6 +25,14 @@
     "verifyRequiresPending": "Only a new request can be moved to verification (current status: {status})",
     "decisionRequiresVerification": "Only a provider in verification can be approved or rejected (current status: {status})"
   },
+  "service": {
+    "notFound": "Service not found",
+    "nameRequired": "Service name is required",
+    "invalidKey": "Service key must look like cat-cook (lowercase letters, numbers and dashes)",
+    "inUse": "{count} provider(s) use this service. Deactivate it instead of deleting.",
+    "nameTaken": "A service with this name already exists",
+    "keyTaken": "A service with this key already exists"
+  },
   "provider": {
     "registerFieldsRequired": "fullName (or firstName/lastName), email and password are required",
     "emailAlreadyRegistered": "Email already registered",

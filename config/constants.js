@@ -10,6 +10,12 @@ module.exports = {
   // Review pipeline for provider applications, in order: a new application is
   // 'pending', an admin moves it to 'verification', then approves or rejects it.
   APPLICATION_STATUS: ['pending', 'verification', 'approved', 'rejected'],
+  // Icon keys an admin can pick for a service; clients map them to their own glyphs.
+  SERVICE_ICONS: [
+    'sparkles', 'chef-hat', 'wrench', 'zap', 'baby', 'car', 'flower', 'spray-can', 'droplets',
+    'paint-roller', 'hammer', 'heart-pulse', 'paw-print', 'shirt', 'home', 'graduation-cap',
+    'stethoscope', 'shield-check',
+  ],
   BOOKING_STATUS: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'],
   JWT_EXPIRES_IN: '7d',
 };
