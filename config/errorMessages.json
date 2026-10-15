@@ -1,7 +1,6 @@
 {
   "server": {
     "routeNotFound": "Route not found",
-    "tooManyRequests": "Too many requests. Please try again later.",
     "resourceNotFound": "Resource not found",
     "invalidToken": "Invalid token",
     "serverError": "Server Error",

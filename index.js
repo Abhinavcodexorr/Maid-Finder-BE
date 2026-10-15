@@ -3,12 +3,10 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
 
 const connectDB = require('./config/db');
 const routes = require('./routes');
 const errorHandler = require('./middleware/errorHandler');
-const { RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX } = require('./config/constants');
 const MESSAGES = require('./config/errorMessages.json');
 
 connectDB().catch(() => {});
@@ -43,15 +41,6 @@ app.use(
       }
     },
     credentials: true,
-  })
-);
-
-// Rate limiting
-app.use(
-  rateLimit({
-    windowMs: RATE_LIMIT_WINDOW_MS,
-    max: RATE_LIMIT_MAX,
-    message: { success: false, message: MESSAGES.server.tooManyRequests },
   })
 );
 
