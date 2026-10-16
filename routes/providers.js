@@ -18,7 +18,12 @@ const router = express.Router();
 
 const IMAGE_MIMETYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const ID_DOCUMENT_MIMETYPES = [...IMAGE_MIMETYPES, 'application/pdf'];
-const VIDEO_MIMETYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska', 'video/3gpp'];
+const VIDEO_MIMETYPES = [
+  'video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska',
+  'video/3gpp', 'video/3gpp2', 'video/avi', 'video/x-msvideo',
+  'video/mpeg', 'video/ogg', 'video/x-flv', 'video/x-ms-wmv',
+  'application/octet-stream', // some Android devices send raw bytes
+];
 
 const photoAndIdFilter = (req, file, cb) => {
   if (file.fieldname === 'photo') {
@@ -53,10 +58,14 @@ const registerUpload = multer({
 // run from 1 to 5 minutes per the product's walkthrough).
 const completeProfileUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 },
+  // No file-size limit — mobile intro videos can be large.
   fileFilter: (req, file, cb) => {
     if (file.fieldname === 'video') {
-      if (!VIDEO_MIMETYPES.includes(file.mimetype)) {
+      // Accept any video-ish mimetype; also allow octet-stream since some
+      // Android/iOS camera apps report a generic binary type.
+      const isVideo = VIDEO_MIMETYPES.includes(file.mimetype) ||
+        file.mimetype.startsWith('video/');
+      if (!isVideo) {
         const error = new Error(MESSAGES.provider.videoInvalidType);
         error.statusCode = 400;
         return cb(error, false);
@@ -66,6 +75,27 @@ const completeProfileUpload = multer({
     return photoAndIdFilter(req, file, cb);
   },
 });
+
+// Inline middleware that catches Multer errors (e.g. LIMIT_FILE_SIZE) and
+// returns a clean JSON response instead of letting the raw error bubble up.
+const handleCompleteProfileUpload = (req, res, next) => {
+  completeProfileUpload.fields([
+    { name: 'photo', maxCount: 1 },
+    { name: 'idDocuments', maxCount: 10 },
+    { name: 'idDocument', maxCount: 1 },
+    { name: 'video', maxCount: 1 },
+  ])(req, res, (err) => {
+    if (err) {
+      const status = err.statusCode || 400;
+      const message =
+        err.code === 'LIMIT_FILE_SIZE'
+          ? MESSAGES.upload.fileTooLarge
+          : err.message || 'File upload error';
+      return res.status(status).json({ success: false, message });
+    }
+    next();
+  });
+};
 
 router.get('/list', listProviders);
 router.get('/me', protectProvider, getMe);
@@ -77,14 +107,7 @@ router.put('/me', protectProvider, updateMyProfile);
 router.post(
   '/me/complete-profile',
   protectProvider,
-  completeProfileUpload.fields([
-    { name: 'photo', maxCount: 1 },
-    { name: 'idDocuments', maxCount: 10 },
-    // Legacy single-file name, kept for clients still sending one ID
-    // document under the old field name instead of the new plural one.
-    { name: 'idDocument', maxCount: 1 },
-    { name: 'video', maxCount: 1 },
-  ]),
+  handleCompleteProfileUpload,
   completeProfile
 );
 
