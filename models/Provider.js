@@ -52,13 +52,26 @@ const providerSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // Local number only (no country code) — e.g. "9876543210", not
+    // "+919876543210". Kept separate from countryCode so the UI can show
+    // them as two fields ("+91" | "98765 XXXXX") without re-parsing.
     mobileNumber: {
       type: String,
       trim: true,
     },
-    // Digits-only copy of mobileNumber, kept in sync in the pre-save hook
-    // below, so phone login works regardless of spaces/dashes/country-code
-    // formatting differences between registration and login.
+    countryCode: {
+      type: String,
+      trim: true,
+      default: '+91',
+    },
+    // Digits-only copy of mobileNumber ALONE (country code deliberately
+    // excluded), kept in sync in the pre-save hook below — this is what
+    // OTP send/verify and phone login match against. Every account
+    // already in production has this computed without a country code
+    // (e.g. mobileNumber "8283941127" -> digits "8283941127", not
+    // "918283941127"), so mixing countryCode into this key would silently
+    // break phone login for every existing provider on their next save.
+    // countryCode is stored only for display/SMS-sending.
     mobileNumberDigits: {
       type: String,
       index: true,

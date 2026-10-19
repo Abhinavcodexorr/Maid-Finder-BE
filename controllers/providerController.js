@@ -19,6 +19,7 @@ const serializeProvider = (provider) => ({
   area: provider.area,
   city: provider.city,
   state: provider.state,
+  countryCode: provider.countryCode,
   mobileNumber: provider.mobileNumber,
   whatsappNumber: provider.whatsappNumber,
   emirate: provider.emirate,
@@ -69,6 +70,9 @@ exports.sendOtp = async (req, res, next) => {
   try {
     const mobileNumber = (req.body.mobileNumber || '').toString().trim();
     const mobileNumberDigits = mobileNumber.replace(/\D/g, '');
+    // Display/delivery only — NOT part of the matching key (see
+    // mobileNumberDigits' comment on the Provider model for why).
+    const countryCode = (req.body.countryCode || '+91').toString().trim();
     if (!mobileNumberDigits) {
       return res.status(400).json({ success: false, message: MESSAGES.provider.mobileNumberRequired });
     }
@@ -92,7 +96,7 @@ exports.sendOtp = async (req, res, next) => {
       { otp, sentAt: now, expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS), attempts: 0 },
       { upsert: true }
     );
-    await deliverOtp(mobileNumber, otp);
+    await deliverOtp(`${countryCode}${mobileNumber}`, otp);
 
     const alreadyRegistered = Boolean(await Provider.exists({ mobileNumberDigits }));
     res.json({
@@ -112,6 +116,7 @@ exports.verifyOtp = async (req, res, next) => {
   try {
     const mobileNumber = (req.body.mobileNumber || '').toString().trim();
     const mobileNumberDigits = mobileNumber.replace(/\D/g, '');
+    const countryCode = (req.body.countryCode || '+91').toString().trim();
     const otp = (req.body.otp || '').toString().trim();
     if (!mobileNumberDigits) {
       return res.status(400).json({ success: false, message: MESSAGES.provider.mobileNumberRequired });
@@ -137,6 +142,7 @@ exports.verifyOtp = async (req, res, next) => {
     if (!provider) {
       provider = await Provider.create({
         mobileNumber,
+        countryCode,
         applicationStatus: 'pending',
       });
     }
@@ -166,6 +172,7 @@ exports.register = async (req, res, next) => {
       area,
       city,
       state,
+      countryCode,
       mobileNumber,
       whatsappNumber,
       email,
@@ -209,6 +216,7 @@ exports.register = async (req, res, next) => {
       area,
       city,
       state,
+      countryCode,
       mobileNumber,
       whatsappNumber,
       imageUrl: imageUrl || undefined,
@@ -307,7 +315,7 @@ exports.getProviderById = async (req, res, next) => {
 
 const ALLOWED_PROFILE_FIELDS = [
   'fullName', 'gender', 'nationality', 'categoryIds', 'area', 'city', 'state',
-  'mobileNumber', 'whatsappNumber', 'emirate', 'experienceYears',
+  'countryCode', 'mobileNumber', 'whatsappNumber', 'emirate', 'experienceYears',
   'monthlySalary', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
   'age', 'dateOfBirth', 'panNumber', 'maritalStatus', 'religion', 'availability',
   'preferredJob', 'duration', 'languages', 'education', 'certificate',
