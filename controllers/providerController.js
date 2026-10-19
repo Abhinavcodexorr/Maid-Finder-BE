@@ -403,6 +403,17 @@ exports.completeProfile = async (req, res, next) => {
     const workPreferences = parseSection(req.body.workPreferences);
     const lastJob = parseSection(req.body.lastJob);
 
+    // Basic Details (fullName/gender/nationality) — not collected at
+    // signup for OTP-created accounts, so this is the only place that
+    // name ever gets set for them. Also accepts firstName/lastName,
+    // composed into fullName, matching how register() already does it.
+    if (generalInfo.fullName !== undefined) {
+      provider.fullName = generalInfo.fullName;
+    } else if (generalInfo.firstName !== undefined || generalInfo.lastName !== undefined) {
+      provider.fullName = `${generalInfo.firstName || ''} ${generalInfo.lastName || ''}`.trim();
+    }
+    if (generalInfo.gender !== undefined) provider.gender = generalInfo.gender;
+    if (generalInfo.nationality !== undefined) provider.nationality = generalInfo.nationality;
     if (generalInfo.age !== undefined) provider.age = generalInfo.age;
     if (generalInfo.dateOfBirth !== undefined) provider.dateOfBirth = generalInfo.dateOfBirth;
     if (generalInfo.maritalStatus !== undefined) provider.maritalStatus = generalInfo.maritalStatus;
