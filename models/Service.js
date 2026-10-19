@@ -29,8 +29,8 @@ const serviceSchema = new mongoose.Schema(
     },
     icon: {
       type: String,
-      enum: { values: SERVICE_ICONS, message: 'Unknown icon: {VALUE}' },
-      default: 'sparkles',
+      enum: { values: ['', ...SERVICE_ICONS], message: 'Unknown icon: {VALUE}' },
+      default: '',
     },
     isActive: {
       type: Boolean,
