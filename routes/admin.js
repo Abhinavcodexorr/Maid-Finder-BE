@@ -2,6 +2,8 @@ const express = require('express');
 const adminAuth = require('../middleware/adminAuth');
 const { listProviders, providersSummary, verifyProvider, approveProvider, rejectProvider, updateProvider, deleteProvider } = require('../controllers/adminController');
 
+const { getAdminDashboard } = require('../controllers/adminDashboardController');
+
 const {
   listServices,
   createService,
@@ -15,6 +17,7 @@ const router = express.Router();
 
 router.use(adminAuth);
 
+router.get('/dashboard', getAdminDashboard);
 router.get('/providers/summary', providersSummary);
 router.get('/providers', listProviders);
 router.patch('/providers/:id/verify', verifyProvider);
