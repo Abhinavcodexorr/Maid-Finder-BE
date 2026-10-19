@@ -15,17 +15,9 @@ const {
 const { protectProvider } = require('../middleware/auth');
 const MESSAGES = require('../config/errorMessages.json');
 const formatMessage = require('../utils/formatMessage');
+const { IMAGE_MIMETYPES, ID_DOCUMENT_MIMETYPES, isVideoMimetype } = require('../config/mimeTypes');
 
 const router = express.Router();
-
-const IMAGE_MIMETYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-const ID_DOCUMENT_MIMETYPES = [...IMAGE_MIMETYPES, 'application/pdf'];
-const VIDEO_MIMETYPES = [
-  'video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska',
-  'video/3gpp', 'video/3gpp2', 'video/avi', 'video/x-msvideo',
-  'video/mpeg', 'video/ogg', 'video/x-flv', 'video/x-ms-wmv',
-  'application/octet-stream', // some Android devices send raw bytes
-];
 
 const photoAndIdFilter = (req, file, cb) => {
   if (file.fieldname === 'photo') {
@@ -63,10 +55,10 @@ const completeProfileUpload = multer({
   // No file-size limit — mobile intro videos can be large.
   fileFilter: (req, file, cb) => {
     if (file.fieldname === 'video') {
-      // Accept any video-ish mimetype; also allow octet-stream since some
-      // Android/iOS camera apps report a generic binary type.
-      const isVideo = VIDEO_MIMETYPES.includes(file.mimetype) ||
-        file.mimetype.startsWith('video/');
+      // application/octet-stream allowed here (but not via isVideoMimetype's
+      // default) since some Android camera apps report that generic type
+      // for a recorded video specifically on this field.
+      const isVideo = isVideoMimetype(file.mimetype) || file.mimetype === 'application/octet-stream';
       if (!isVideo) {
         const error = new Error(MESSAGES.provider.videoInvalidType);
         error.statusCode = 400;

@@ -69,7 +69,7 @@
   "upload": {
     "noFileProvided": "No image file provided",
     "s3NotConfigured": "S3 bucket not configured",
-    "invalidFileType": "Only images (jpeg, jpg, png, gif, webp) are allowed",
+    "invalidFileType": "Only images (jpeg, jpg, png, gif, webp) or videos (mp4, mov, webm and other common formats) are allowed",
     "fileTooLarge": "File size exceeds the allowed limit"
   },
   "validation": {
