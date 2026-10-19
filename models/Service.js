@@ -36,6 +36,21 @@ const serviceSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Optional second level, e.g. "AC Servicing" -> Window AC, Split AC. Providers
+    // reference one by `key` in Provider.subCategoryIds, so a key never changes once made.
+    subCategories: {
+      type: [
+        new mongoose.Schema(
+          {
+            key: { type: String, required: true, trim: true, lowercase: true },
+            name: { type: String, required: true, trim: true, minlength: 1, maxlength: 60 },
+            isActive: { type: Boolean, default: true },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );

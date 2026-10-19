@@ -181,6 +181,9 @@ exports.updateProvider = async (req, res, next) => {
     if (req.body.categoryIds !== undefined) {
       provider.categoryIds = normalizeCategoryIds(req.body.categoryIds);
     }
+    if (req.body.subCategoryIds !== undefined) {
+      provider.subCategoryIds = normalizeCategoryIds(req.body.subCategoryIds) ?? [];
+    }
     for (const field of EDITABLE_FIELDS) {
       if (req.body[field] !== undefined) provider[field] = req.body[field];
     }

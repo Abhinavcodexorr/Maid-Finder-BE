@@ -28,6 +28,8 @@
   "service": {
     "notFound": "Service not found",
     "nameRequired": "Service name is required",
+    "invalidSubCategories": "Sub-categories must be a list of names (1-60 characters each, no duplicates, up to 30)",
+    "subCategoryInUse": "{count} provider(s) use the sub-category \"{name}\". Mark it inactive instead of removing it.",
     "invalidKey": "Service key must look like cat-cook (lowercase letters, numbers and dashes)",
     "inUse": "{count} provider(s) use this service. Deactivate it instead of deleting.",
     "nameTaken": "A service with this name already exists",

@@ -40,6 +40,11 @@ const providerSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // Keys of the service sub-categories chosen (e.g. "sub-window-ac" under "AC Servicing").
+    subCategoryIds: {
+      type: [String],
+      default: [],
+    },
     area: {
       type: String,
       trim: true,

@@ -16,6 +16,7 @@ const serializeProvider = (provider) => ({
   gender: provider.gender,
   nationality: provider.nationality,
   categoryIds: provider.categoryIds,
+  subCategoryIds: provider.subCategoryIds,
   area: provider.area,
   city: provider.city,
   state: provider.state,
@@ -169,6 +170,7 @@ exports.register = async (req, res, next) => {
       nationality,
       categoryIds,
       categoryId, // legacy pre-rename name, used as a fallback below
+      subCategoryIds,
       area,
       city,
       state,
@@ -213,6 +215,7 @@ exports.register = async (req, res, next) => {
       gender,
       nationality,
       categoryIds: normalizeCategoryIds(categoryIds ?? categoryId),
+      subCategoryIds: normalizeCategoryIds(subCategoryIds),
       area,
       city,
       state,
@@ -314,7 +317,7 @@ exports.getProviderById = async (req, res, next) => {
 };
 
 const ALLOWED_PROFILE_FIELDS = [
-  'fullName', 'gender', 'nationality', 'categoryIds', 'area', 'city', 'state',
+  'fullName', 'gender', 'nationality', 'categoryIds', 'subCategoryIds', 'area', 'city', 'state',
   'countryCode', 'mobileNumber', 'whatsappNumber', 'emirate', 'experienceYears',
   'monthlySalary', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
   'age', 'dateOfBirth', 'panNumber', 'maritalStatus', 'religion', 'availability',
@@ -330,11 +333,12 @@ const ALLOWED_PROFILE_FIELDS = [
 const applyAllowedFields = (provider, body) => {
   const resolvedCategoryIds = body.categoryIds ?? body.categoryId;
   if (resolvedCategoryIds !== undefined) provider.categoryIds = normalizeCategoryIds(resolvedCategoryIds);
+  if (body.subCategoryIds !== undefined) provider.subCategoryIds = normalizeCategoryIds(body.subCategoryIds) ?? [];
   if (body.monthlySalary === undefined && body.monthlySalaryAed !== undefined) {
     body.monthlySalary = body.monthlySalaryAed;
   }
   ALLOWED_PROFILE_FIELDS.forEach((key) => {
-    if (key === 'categoryIds' || body[key] === undefined) return;
+    if (key === 'categoryIds' || key === 'subCategoryIds' || body[key] === undefined) return;
     provider[key] = body[key];
   });
 };
@@ -413,6 +417,9 @@ exports.completeProfile = async (req, res, next) => {
     const resolvedCategoryIds = workPreferences.categoryIds ?? workPreferences.categoryId;
     if (resolvedCategoryIds !== undefined) {
       provider.categoryIds = normalizeCategoryIds(resolvedCategoryIds);
+    }
+    if (workPreferences.subCategoryIds !== undefined) {
+      provider.subCategoryIds = normalizeCategoryIds(workPreferences.subCategoryIds) ?? [];
     }
     if (workPreferences.monthlySalary === undefined && workPreferences.monthlySalaryAed !== undefined) {
       workPreferences.monthlySalary = workPreferences.monthlySalaryAed;
