@@ -2,6 +2,7 @@ const Provider = require('../models/Provider');
 const OtpRequest = require('../models/OtpRequest');
 const generateToken = require('../utils/jwt');
 const { uploadBufferToS3 } = require('../utils/s3Upload');
+const { makeThumbnail, makeWebVideo, stageBuffer } = require('../utils/videoProcess');
 const MESSAGES = require('../config/errorMessages.json');
 const formatMessage = require('../utils/formatMessage');
 const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
@@ -33,8 +34,30 @@ const serializeProvider = (provider) => ({
     idDocumentUrl: doc.idDocumentUrl,
   })),
   introVideoUrl: provider.introVideoUrl,
+  introVideoThumbnailUrl: provider.introVideoThumbnailUrl,
   applicationStatus: provider.applicationStatus,
 });
+
+// Background job after an intro video upload: make a thumbnail first (quick), then a
+// web-friendly copy (slow). Never blocks or fails the request; without ffmpeg the
+// original upload simply stays as it is.
+const processIntroVideo = async (providerId, buffer, originalUrl) => {
+  let staged;
+  try {
+    staged = await stageBuffer(buffer);
+    const thumbnail = await makeThumbnail(staged.path);
+    await Provider.updateOne({ _id: providerId, introVideoUrl: originalUrl }, { introVideoThumbnailUrl: thumbnail });
+    const webUrl = await makeWebVideo(staged.path);
+    await Provider.updateOne(
+      { _id: providerId, introVideoUrl: originalUrl },
+      { introVideoUrl: webUrl, introVideoOriginalUrl: originalUrl }
+    );
+  } catch (error) {
+    console.error('Intro video processing skipped:', error.message);
+  } finally {
+    staged?.cleanup();
+  }
+};
 
 // ---------------------------------------------------------------------
 // Step 1 — Mobile Verification. Phone + OTP, no password at this stage.
@@ -402,7 +425,12 @@ exports.completeProfile = async (req, res, next) => {
       videoFile ? uploadBufferToS3(videoFile.buffer, videoFile.mimetype, 'help-zone/videos') : null,
     ]);
     if (imageUrl) provider.imageUrl = imageUrl;
-    if (introVideoUrl) provider.introVideoUrl = introVideoUrl;
+    if (introVideoUrl) {
+      provider.introVideoUrl = introVideoUrl;
+      provider.introVideoThumbnailUrl = undefined;
+      provider.introVideoOriginalUrl = undefined;
+      processIntroVideo(provider._id, videoFile.buffer, introVideoUrl);
+    }
 
     // Multiple ID proofs: generalInfo.idProofs is an array of
     // { idType, idNumber }, paired by position with files uploaded under

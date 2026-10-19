@@ -192,6 +192,16 @@ const providerSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // Still frame of the intro video (the original is often 4K HEVC that browsers can't decode).
+    introVideoThumbnailUrl: {
+      type: String,
+      trim: true,
+    },
+    // The upload as the provider sent it, kept when introVideoUrl is swapped for the web-friendly copy.
+    introVideoOriginalUrl: {
+      type: String,
+      trim: true,
+    },
     agreedToTerms: {
       type: Boolean,
       default: false,
