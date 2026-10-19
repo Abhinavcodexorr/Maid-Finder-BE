@@ -44,7 +44,12 @@
     "photoInvalidType": "Photo must be an image (jpeg, jpg, png or webp)",
     "idDocumentInvalidType": "ID document must be an image (jpeg, jpg, png, webp) or PDF",
     "videoInvalidType": "Video must be in a supported format (mp4, mov, webm, mkv or 3gp)",
-    "unexpectedFileField": "Unexpected file field: {field}"
+    "unexpectedFileField": "Unexpected file field: {field}",
+    "mobileNumberRequired": "A valid mobile number is required",
+    "otpResendTooSoon": "Please wait {seconds} seconds before requesting another OTP",
+    "otpNotRequested": "No OTP was requested for this number, or it has expired. Please request a new one.",
+    "otpRequired": "OTP is required",
+    "otpInvalid": "Invalid OTP"
   },
   "customer": {
     "emailAlreadyRegistered": "Email already registered",

@@ -18,4 +18,6 @@ module.exports = {
   ],
   BOOKING_STATUS: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'],
   JWT_EXPIRES_IN: '7d',
+  OTP_EXPIRY_MS: 10 * 60 * 1000, // 10 minutes
+  OTP_RESEND_COOLDOWN_MS: 60 * 1000, // 1 minute between resend requests
 };

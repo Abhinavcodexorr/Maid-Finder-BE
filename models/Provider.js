@@ -4,9 +4,14 @@ const { MARITAL_STATUS, APPLICATION_STATUS } = require('../config/constants');
 
 const providerSchema = new mongoose.Schema(
   {
+    // Not required at account-creation time anymore — mobile-OTP signup
+    // creates the account before email is collected (Basic Details step),
+    // so this must be sparse or the 2nd account with no email would
+    // collide with the 1st on the unique index (both "null").
     email: {
       type: String,
       unique: true,
+      sparse: true,
       lowercase: true,
       trim: true,
     },
@@ -94,6 +99,14 @@ const providerSchema = new mongoose.Schema(
     bio: {
       type: String,
       maxlength: [500, 'Bio cannot exceed 500 characters'],
+    },
+    // Canonical field going forward (Basic Details step collects this, not
+    // a raw age number). `age` is kept in sync from it in the pre-save hook
+    // below purely so existing code/consumers that already read `age`
+    // (admin listing, filters) keep working without every call site
+    // needing to switch to computing it from a date themselves.
+    dateOfBirth: {
+      type: Date,
     },
     age: {
       type: Number,
@@ -215,6 +228,20 @@ providerSchema.pre('save', async function (next) {
 providerSchema.pre('save', function (next) {
   if (this.isModified('mobileNumber')) {
     this.mobileNumberDigits = this.mobileNumber ? this.mobileNumber.replace(/\D/g, '') : undefined;
+  }
+  next();
+});
+
+providerSchema.pre('save', function (next) {
+  if (this.isModified('dateOfBirth') && this.dateOfBirth) {
+    const today = new Date();
+    const dob = new Date(this.dateOfBirth);
+    let computedAge = today.getFullYear() - dob.getFullYear();
+    const hasHadBirthdayThisYear =
+      today.getMonth() > dob.getMonth() ||
+      (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
+    if (!hasHadBirthdayThisYear) computedAge -= 1;
+    this.age = computedAge;
   }
   next();
 });

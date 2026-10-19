@@ -1,8 +1,12 @@
 const Provider = require('../models/Provider');
+const OtpRequest = require('../models/OtpRequest');
 const generateToken = require('../utils/jwt');
 const { uploadBufferToS3 } = require('../utils/s3Upload');
 const MESSAGES = require('../config/errorMessages.json');
+const formatMessage = require('../utils/formatMessage');
 const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
+const { generateOtp, deliverOtp } = require('../utils/otp');
+const { OTP_EXPIRY_MS, OTP_RESEND_COOLDOWN_MS } = require('../config/constants');
 
 const serializeProvider = (provider) => ({
   id: provider._id,
@@ -31,6 +35,100 @@ const serializeProvider = (provider) => ({
   introVideoUrl: provider.introVideoUrl,
   applicationStatus: provider.applicationStatus,
 });
+
+// ---------------------------------------------------------------------
+// Step 1 — Mobile Verification. Phone + OTP, no password at this stage.
+// Works for both first-time signup and returning providers logging back
+// in: verifyOtp finds-or-creates, so the same two calls serve both.
+// ---------------------------------------------------------------------
+
+exports.sendOtp = async (req, res, next) => {
+  try {
+    const mobileNumber = (req.body.mobileNumber || '').toString().trim();
+    const mobileNumberDigits = mobileNumber.replace(/\D/g, '');
+    if (!mobileNumberDigits) {
+      return res.status(400).json({ success: false, message: MESSAGES.provider.mobileNumberRequired });
+    }
+
+    const existing = await OtpRequest.findOne({ mobileNumberDigits });
+    if (existing) {
+      const elapsedMs = Date.now() - existing.sentAt.getTime();
+      if (elapsedMs < OTP_RESEND_COOLDOWN_MS) {
+        const waitSeconds = Math.ceil((OTP_RESEND_COOLDOWN_MS - elapsedMs) / 1000);
+        return res.status(429).json({
+          success: false,
+          message: formatMessage(MESSAGES.provider.otpResendTooSoon, { seconds: waitSeconds }),
+        });
+      }
+    }
+
+    const otp = generateOtp();
+    const now = new Date();
+    await OtpRequest.findOneAndUpdate(
+      { mobileNumberDigits },
+      { otp, sentAt: now, expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS), attempts: 0 },
+      { upsert: true }
+    );
+    await deliverOtp(mobileNumber, otp);
+
+    const alreadyRegistered = Boolean(await Provider.exists({ mobileNumberDigits }));
+    res.json({
+      success: true,
+      alreadyRegistered,
+      expiresInSeconds: OTP_EXPIRY_MS / 1000,
+      // Dev-mode only: the real OTP is never returned once actual SMS
+      // sending replaces utils/otp.js's deliverOtp stub.
+      devOtp: otp,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.verifyOtp = async (req, res, next) => {
+  try {
+    const mobileNumber = (req.body.mobileNumber || '').toString().trim();
+    const mobileNumberDigits = mobileNumber.replace(/\D/g, '');
+    const otp = (req.body.otp || '').toString().trim();
+    if (!mobileNumberDigits) {
+      return res.status(400).json({ success: false, message: MESSAGES.provider.mobileNumberRequired });
+    }
+    if (!otp) {
+      return res.status(400).json({ success: false, message: MESSAGES.provider.otpRequired });
+    }
+
+    const otpRequest = await OtpRequest.findOne({ mobileNumberDigits });
+    if (!otpRequest || otpRequest.expiresAt < new Date()) {
+      return res.status(400).json({ success: false, message: MESSAGES.provider.otpNotRequested });
+    }
+    if (otpRequest.otp !== otp) {
+      otpRequest.attempts += 1;
+      await otpRequest.save();
+      return res.status(400).json({ success: false, message: MESSAGES.provider.otpInvalid });
+    }
+
+    await OtpRequest.deleteOne({ _id: otpRequest._id });
+
+    let provider = await Provider.findOne({ mobileNumberDigits });
+    const isNewAccount = !provider;
+    if (!provider) {
+      provider = await Provider.create({
+        mobileNumber,
+        applicationStatus: 'pending',
+      });
+    }
+
+    const token = generateToken(provider._id, 'provider');
+    res.json({
+      success: true,
+      token,
+      isNewAccount,
+      provider: serializeProvider(provider),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 exports.register = async (req, res, next) => {
   try {
@@ -188,7 +286,7 @@ const ALLOWED_PROFILE_FIELDS = [
   'fullName', 'gender', 'nationality', 'categoryIds', 'area', 'city', 'state',
   'mobileNumber', 'whatsappNumber', 'emirate', 'experienceYears',
   'monthlySalary', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
-  'age', 'panNumber', 'maritalStatus', 'religion', 'availability',
+  'age', 'dateOfBirth', 'panNumber', 'maritalStatus', 'religion', 'availability',
   'preferredJob', 'duration', 'languages', 'education', 'certificate',
   'lastWorkingExperience', 'jobDescription',
   'profileComplete',
@@ -271,6 +369,7 @@ exports.completeProfile = async (req, res, next) => {
     const lastJob = parseSection(req.body.lastJob);
 
     if (generalInfo.age !== undefined) provider.age = generalInfo.age;
+    if (generalInfo.dateOfBirth !== undefined) provider.dateOfBirth = generalInfo.dateOfBirth;
     if (generalInfo.maritalStatus !== undefined) provider.maritalStatus = generalInfo.maritalStatus;
     if (generalInfo.religion !== undefined) provider.religion = generalInfo.religion;
     if (generalInfo.panNumber !== undefined) provider.panNumber = generalInfo.panNumber;

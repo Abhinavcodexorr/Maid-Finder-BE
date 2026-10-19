@@ -1,6 +1,8 @@
 const express = require('express');
 const multer = require('multer');
 const {
+  sendOtp,
+  verifyOtp,
   register,
   login,
   getMe,
@@ -96,6 +98,12 @@ const handleCompleteProfileUpload = (req, res, next) => {
     next();
   });
 };
+
+// Step 1 — Mobile Verification: send-otp -> verify-otp. verifyOtp
+// find-or-creates the account, so it serves both first-time signup and
+// returning-provider login.
+router.post('/send-otp', sendOtp);
+router.post('/verify-otp', verifyOtp);
 
 router.get('/list', listProviders);
 router.get('/me', protectProvider, getMe);
