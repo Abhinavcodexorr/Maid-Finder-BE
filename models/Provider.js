@@ -77,9 +77,21 @@ const providerSchema = new mongoose.Schema(
     // "918283941127"), so mixing countryCode into this key would silently
     // break phone login for every existing provider on their next save.
     // countryCode is stored only for display/SMS-sending.
+    //
+    // unique + sparse: mobile number is the real account identity in the
+    // OTP-first flow now, not email. sparse so legacy/incomplete docs with
+    // no mobile number don't collide with each other.
+    // ⚠️ Mongoose only builds this index in the BACKGROUND on connect — if
+    // any duplicate mobileNumberDigits already exist in the live database
+    // (the register()-never-checked-mobile-number bug this accompanies
+    // would have let that happen), the build silently fails and the
+    // constraint is NOT actually enforced until those duplicates are
+    // resolved. Run scripts/findDuplicateMobileNumbers.js against
+    // production first.
     mobileNumberDigits: {
       type: String,
-      index: true,
+      unique: true,
+      sparse: true,
     },
     whatsappNumber: {
       type: String,

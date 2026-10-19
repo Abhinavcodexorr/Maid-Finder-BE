@@ -196,8 +196,21 @@ exports.register = async (req, res, next) => {
       return res.status(400).json({ success: false, message: MESSAGES.provider.registerFieldsRequired });
     }
 
-    const existingProvider = await Provider.findOne({ email });
-    if (existingProvider) {
+    // Mobile number is the real unique identity in the OTP-first flow — an
+    // account may already exist for this number (created by verify-otp, or
+    // a previous partial register() call) with no email/password yet. If
+    // so, this call completes THAT account instead of blocking with
+    // "already registered" or silently creating a duplicate for the same
+    // phone number.
+    const mobileNumberDigits = mobileNumber ? String(mobileNumber).replace(/\D/g, '') : '';
+    let provider = mobileNumberDigits ? await Provider.findOne({ mobileNumberDigits }) : null;
+    const isNewAccount = !provider;
+
+    // Email still has to be unique, but only against a DIFFERENT provider —
+    // reusing your own email to complete your own (mobile-matched) account
+    // is not a conflict.
+    const emailOwner = await Provider.findOne({ email });
+    if (emailOwner && (!provider || emailOwner._id.toString() !== provider._id.toString())) {
       return res.status(400).json({ success: false, message: MESSAGES.provider.emailAlreadyRegistered });
     }
 
@@ -208,7 +221,7 @@ exports.register = async (req, res, next) => {
       idDocumentFile ? uploadBufferToS3(idDocumentFile.buffer, idDocumentFile.mimetype, 'help-zone/kyc') : null,
     ]);
 
-    const provider = await Provider.create({
+    const fields = {
       email,
       password,
       fullName: resolvedFullName,
@@ -222,17 +235,26 @@ exports.register = async (req, res, next) => {
       countryCode,
       mobileNumber,
       whatsappNumber,
-      imageUrl: imageUrl || undefined,
-      kycDocuments: idDocumentUrl ? [{ idType, idNumber, idDocumentUrl }] : [],
+      ...(imageUrl && { imageUrl }),
+      ...(idDocumentUrl && { kycDocuments: [{ idType, idNumber, idDocumentUrl }] }),
       agreedToTerms: Boolean(agreedToTerms),
-      agreedToTermsAt: agreedToTerms ? new Date() : undefined,
-      applicationStatus: 'pending',
-    });
+      ...(agreedToTerms && { agreedToTermsAt: new Date() }),
+    };
+
+    if (provider) {
+      Object.entries(fields).forEach(([key, value]) => {
+        if (value !== undefined) provider[key] = value;
+      });
+      await provider.save();
+    } else {
+      provider = await Provider.create({ ...fields, applicationStatus: 'pending' });
+    }
 
     const token = generateToken(provider._id, 'provider');
-    res.status(201).json({
+    res.status(isNewAccount ? 201 : 200).json({
       success: true,
       token,
+      isNewAccount,
       provider: serializeProvider(provider),
     });
   } catch (error) {
