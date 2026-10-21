@@ -53,6 +53,7 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // API routes
 app.use('/api/v1', routes);
+app.use('/api', routes);
 
 // 404 handler
 app.use((req, res) => {

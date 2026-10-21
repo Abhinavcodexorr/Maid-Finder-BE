@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const { uploadFile } = require('../controllers/uploadController');
-const { protect } = require('../middleware/auth');
+const { optionalProtect } = require('../middleware/auth');
 const MESSAGES = require('../config/errorMessages.json');
 const { IMAGE_MIMETYPES, isVideoMimetype } = require('../config/mimeTypes');
 
@@ -21,17 +21,13 @@ const upload = multer({
   },
 });
 
-// Single generic upload endpoint — send the file under any of these field
-// names (whichever is convenient client-side), get back { success, url }.
-// Accepts both images (jpeg/jpg/png/webp/gif) and videos (mp4/mov/webm/...).
+// Single generic upload endpoint — send the file under any field name
+// (e.g. `file`, `image`, `video`, `photo`, `aadhaarFront`, `panCard`, etc.)
+// and get back { success, url }.
 router.post(
   '/',
-  protect,
-  upload.fields([
-    { name: 'file', maxCount: 1 },
-    { name: 'image', maxCount: 1 },
-    { name: 'video', maxCount: 1 },
-  ]),
+  optionalProtect,
+  upload.any(),
   uploadFile
 );
 

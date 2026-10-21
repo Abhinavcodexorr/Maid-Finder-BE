@@ -40,6 +40,7 @@ const serializeProvider = (provider) => ({
   aadhaarBackUrl: provider.aadhaarBackUrl,
   kycDocuments: (provider.kycDocuments || []).map((doc) => ({
     idType: doc.idType,
+    idNumber: doc.idNumber,
     idDocumentUrl: doc.idDocumentUrl,
   })),
   introVideoUrl: provider.introVideoUrl,
@@ -221,17 +222,73 @@ exports.register = async (req, res, next) => {
       return res.status(400).json({ success: false, message: MESSAGES.provider.emailAlreadyRegistered });
     }
 
-    const photoFile = req.files?.photo?.[0];
+    const photoFile =
+      req.files?.photo?.[0] ||
+      req.files?.image?.[0] ||
+      req.files?.file?.[0] ||
+      req.files?.profilePhoto?.[0];
     const idDocumentFile = req.files?.idDocument?.[0];
-    const [imageUrl, idDocumentUrl] = await Promise.all([
-      photoFile ? uploadBufferToS3(photoFile.buffer, photoFile.mimetype, 'help-zone/photos') : null,
-      idDocumentFile ? uploadBufferToS3(idDocumentFile.buffer, idDocumentFile.mimetype, 'help-zone/kyc') : null,
-    ]);
+    const aadhaarFrontFile = req.files?.aadhaarFront?.[0];
+    const aadhaarBackFile = req.files?.aadhaarBack?.[0];
+    const panCardFile = req.files?.panCard?.[0] || req.files?.pan?.[0];
+
+    const [uploadedImageUrl, uploadedIdDocumentUrl, uploadedAadhaarFrontUrl, uploadedAadhaarBackUrl, uploadedPanCardUrl] =
+      await Promise.all([
+        photoFile ? uploadBufferToS3(photoFile.buffer, photoFile.mimetype, 'help-zone/photos') : null,
+        idDocumentFile ? uploadBufferToS3(idDocumentFile.buffer, idDocumentFile.mimetype, 'help-zone/kyc') : null,
+        aadhaarFrontFile ? uploadBufferToS3(aadhaarFrontFile.buffer, aadhaarFrontFile.mimetype, 'help-zone/kyc') : null,
+        aadhaarBackFile ? uploadBufferToS3(aadhaarBackFile.buffer, aadhaarBackFile.mimetype, 'help-zone/kyc') : null,
+        panCardFile ? uploadBufferToS3(panCardFile.buffer, panCardFile.mimetype, 'help-zone/kyc') : null,
+      ]);
+
+    const resolvedImageUrl =
+      uploadedImageUrl ||
+      req.body.imageUrl ||
+      req.body.photoUrl ||
+      (typeof req.body.photo === 'string' ? req.body.photo : null) ||
+      (typeof req.body.image === 'string' ? req.body.image : null) ||
+      req.body.profilePhoto ||
+      req.body.profilePhotoUrl ||
+      req.body.avatarUrl ||
+      (typeof req.body.avatar === 'string' ? req.body.avatar : null) ||
+      req.body.url;
+
+    const resolvedIdDocumentUrl =
+      uploadedIdDocumentUrl ||
+      req.body.idDocumentUrl ||
+      (typeof req.body.idDocument === 'string' ? req.body.idDocument : null);
+
+    const resolvedAadhaarFrontUrl =
+      uploadedAadhaarFrontUrl ||
+      req.body.aadhaarFrontUrl ||
+      (typeof req.body.aadhaarFront === 'string' ? req.body.aadhaarFront : null) ||
+      req.body.aadhaarFrontPhoto;
+
+    const resolvedAadhaarBackUrl =
+      uploadedAadhaarBackUrl ||
+      req.body.aadhaarBackUrl ||
+      (typeof req.body.aadhaarBack === 'string' ? req.body.aadhaarBack : null) ||
+      req.body.aadhaarBackPhoto;
+
+    const resolvedPanCardUrl =
+      uploadedPanCardUrl ||
+      req.body.panCardUrl ||
+      (typeof req.body.panCard === 'string' ? req.body.panCard : null) ||
+      req.body.panUrl ||
+      req.body.panCardPhoto;
+
+    const resolvedIntroVideoUrl =
+      req.body.introVideoUrl ||
+      req.body.videoUrl ||
+      (typeof req.body.introVideo === 'string' ? req.body.introVideo : null) ||
+      (typeof req.body.video === 'string' ? req.body.video : null);
 
     const fields = {
       email,
       password,
       fullName: resolvedFullName,
+      ...(firstName && { firstName }),
+      ...(lastName && { lastName }),
       gender,
       nationality,
       categoryIds: normalizeCategoryIds(categoryIds ?? categoryId),
@@ -242,8 +299,14 @@ exports.register = async (req, res, next) => {
       countryCode,
       mobileNumber,
       whatsappNumber,
-      ...(imageUrl && { imageUrl }),
-      ...(idDocumentUrl && { kycDocuments: [{ idType, idNumber, idDocumentUrl }] }),
+      ...(req.body.aadhaarNumber && { aadhaarNumber: req.body.aadhaarNumber }),
+      ...(req.body.panNumber && { panNumber: req.body.panNumber }),
+      ...(resolvedImageUrl && { imageUrl: resolvedImageUrl }),
+      ...(resolvedAadhaarFrontUrl && { aadhaarFrontUrl: resolvedAadhaarFrontUrl }),
+      ...(resolvedAadhaarBackUrl && { aadhaarBackUrl: resolvedAadhaarBackUrl }),
+      ...(resolvedPanCardUrl && { panCardUrl: resolvedPanCardUrl }),
+      ...(resolvedIntroVideoUrl && { introVideoUrl: resolvedIntroVideoUrl }),
+      ...(resolvedIdDocumentUrl && { kycDocuments: [{ idType, idNumber, idDocumentUrl: resolvedIdDocumentUrl }] }),
       agreedToTerms: Boolean(agreedToTerms),
       ...(agreedToTerms && { agreedToTermsAt: new Date() }),
     };
@@ -350,6 +413,7 @@ const ALLOWED_PROFILE_FIELDS = [
   'countryCode', 'mobileNumber', 'whatsappNumber', 'emirate', 'experienceYears',
   'monthlySalary', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
   'age', 'dateOfBirth', 'panNumber', 'panCardUrl', 'aadhaarNumber', 'aadhaarFrontUrl', 'aadhaarBackUrl',
+  'introVideoUrl', 'introVideoThumbnailUrl', 'introVideoOriginalUrl', 'kycDocuments',
   'maritalStatus', 'religion', 'availability',
   'preferredJob', 'duration', 'languages', 'education', 'certificate',
   'lastWorkingExperience', 'jobDescription',
@@ -359,13 +423,28 @@ const ALLOWED_PROFILE_FIELDS = [
 // categoryIds needs its comma-string-or-array normalization applied even
 // through the generic field list, so it can't just be assigned as-is.
 // Also falls back to the pre-rename field names (categoryId,
-// monthlySalaryAed) if the current ones aren't present in the body.
+// monthlySalaryAed) and URL aliases if the current ones aren't present in the body.
 const applyAllowedFields = (provider, body) => {
   const resolvedCategoryIds = body.categoryIds ?? body.categoryId;
   if (resolvedCategoryIds !== undefined) provider.categoryIds = normalizeCategoryIds(resolvedCategoryIds);
   if (body.subCategoryIds !== undefined) provider.subCategoryIds = normalizeCategoryIds(body.subCategoryIds) ?? [];
   if (body.monthlySalary === undefined && body.monthlySalaryAed !== undefined) {
     body.monthlySalary = body.monthlySalaryAed;
+  }
+  if (!body.imageUrl && (body.photoUrl || typeof body.photo === 'string' || typeof body.image === 'string' || body.profilePhoto)) {
+    body.imageUrl = body.photoUrl || (typeof body.photo === 'string' ? body.photo : null) || (typeof body.image === 'string' ? body.image : null) || body.profilePhoto;
+  }
+  if (!body.aadhaarFrontUrl && (typeof body.aadhaarFront === 'string' || body.aadhaarFrontPhoto)) {
+    body.aadhaarFrontUrl = typeof body.aadhaarFront === 'string' ? body.aadhaarFront : body.aadhaarFrontPhoto;
+  }
+  if (!body.aadhaarBackUrl && (typeof body.aadhaarBack === 'string' || body.aadhaarBackPhoto)) {
+    body.aadhaarBackUrl = typeof body.aadhaarBack === 'string' ? body.aadhaarBack : body.aadhaarBackPhoto;
+  }
+  if (!body.panCardUrl && (typeof body.panCard === 'string' || typeof body.panUrl === 'string' || body.panCardPhoto)) {
+    body.panCardUrl = typeof body.panCard === 'string' ? body.panCard : body.panUrl || body.panCardPhoto;
+  }
+  if (!body.introVideoUrl && (typeof body.video === 'string' || typeof body.videoUrl === 'string' || typeof body.introVideo === 'string')) {
+    body.introVideoUrl = typeof body.video === 'string' ? body.video : body.videoUrl || body.introVideo;
   }
   ALLOWED_PROFILE_FIELDS.forEach((key) => {
     if (key === 'categoryIds' || key === 'subCategoryIds' || body[key] === undefined) return;
@@ -415,7 +494,21 @@ const markSubmittedForReview = (provider) => {
 // (multipart, needed when photo/idDocument files are also being sent).
 exports.completeProfile = async (req, res, next) => {
   try {
-    const provider = req.provider;
+    let provider = req.provider;
+    if (!provider) {
+      const identifier = req.body.providerId || req.body.id || req.body._id || req.body.userId;
+      if (identifier) {
+        provider = await Provider.findById(identifier);
+      } else if (req.body.mobileNumber) {
+        const digits = String(req.body.mobileNumber).replace(/\D/g, '');
+        if (digits) provider = await Provider.findOne({ mobileNumberDigits: digits });
+      } else if (req.body.email) {
+        provider = await Provider.findOne({ email: req.body.email.toLowerCase().trim() });
+      }
+    }
+    if (!provider) {
+      return res.status(401).json({ success: false, message: MESSAGES.auth.notAuthorized });
+    }
 
     const parseSection = (value) => {
       if (!value) return {};
@@ -432,101 +525,278 @@ exports.completeProfile = async (req, res, next) => {
     const generalInfo = parseSection(req.body.generalInfo);
     const workPreferences = parseSection(req.body.workPreferences);
     const lastJob = parseSection(req.body.lastJob);
+    const kycSection = parseSection(req.body.kyc);
 
-    // Basic Details (fullName/gender/nationality) — not collected at
-    // signup for OTP-created accounts, so this is the only place that
-    // name ever gets set for them. Also accepts firstName/lastName,
-    // composed into fullName, matching how register() already does it.
-    if (generalInfo.firstName !== undefined) provider.firstName = generalInfo.firstName;
-    if (generalInfo.lastName !== undefined) provider.lastName = generalInfo.lastName;
-    if (generalInfo.fullName !== undefined) {
-      provider.fullName = generalInfo.fullName;
-    } else if (generalInfo.firstName !== undefined || generalInfo.lastName !== undefined) {
-      provider.fullName = `${generalInfo.firstName || ''} ${generalInfo.lastName || ''}`.trim();
+    // Read flexibly from section or top-level body
+    const getVal = (section, ...keys) => {
+      for (const k of keys) {
+        if (section && section[k] !== undefined) return section[k];
+        if (req.body && req.body[k] !== undefined) return req.body[k];
+      }
+      return undefined;
+    };
+
+    const firstName = getVal(generalInfo, 'firstName');
+    const lastName = getVal(generalInfo, 'lastName');
+    const fullName = getVal(generalInfo, 'fullName');
+    if (firstName !== undefined) provider.firstName = firstName;
+    if (lastName !== undefined) provider.lastName = lastName;
+    if (fullName !== undefined) {
+      provider.fullName = fullName;
+    } else if (firstName !== undefined || lastName !== undefined) {
+      provider.fullName = `${provider.firstName || ''} ${provider.lastName || ''}`.trim();
     }
-    if (generalInfo.gender !== undefined) provider.gender = generalInfo.gender;
-    if (generalInfo.nationality !== undefined) provider.nationality = generalInfo.nationality;
-    if (generalInfo.age !== undefined) provider.age = generalInfo.age;
-    if (generalInfo.dateOfBirth !== undefined) provider.dateOfBirth = generalInfo.dateOfBirth;
-    if (generalInfo.maritalStatus !== undefined) provider.maritalStatus = generalInfo.maritalStatus;
-    if (generalInfo.religion !== undefined) provider.religion = generalInfo.religion;
-    if (generalInfo.panNumber !== undefined) provider.panNumber = generalInfo.panNumber;
-    if (generalInfo.aadhaarNumber !== undefined) provider.aadhaarNumber = generalInfo.aadhaarNumber;
-    if (generalInfo.state !== undefined) provider.state = generalInfo.state;
-    if (generalInfo.city !== undefined) provider.city = generalInfo.city;
 
-    // Backward compatibility: the client may still be sending the pre-rename
-    // field names (categoryId -> categoryIds, monthlySalaryAed ->
-    // monthlySalary). Fall back to those if the current name isn't present.
-    const resolvedCategoryIds = workPreferences.categoryIds ?? workPreferences.categoryId;
+    const gender = getVal(generalInfo, 'gender');
+    if (gender !== undefined) provider.gender = gender;
+    const nationality = getVal(generalInfo, 'nationality');
+    if (nationality !== undefined) provider.nationality = nationality;
+    const age = getVal(generalInfo, 'age');
+    if (age !== undefined) provider.age = age;
+    const dateOfBirth = getVal(generalInfo, 'dateOfBirth');
+    if (dateOfBirth !== undefined) provider.dateOfBirth = dateOfBirth;
+    const maritalStatus = getVal(generalInfo, 'maritalStatus');
+    if (maritalStatus !== undefined) provider.maritalStatus = maritalStatus;
+    const religion = getVal(generalInfo, 'religion');
+    if (religion !== undefined) provider.religion = religion;
+    const panNumber = getVal(generalInfo, 'panNumber', 'pan');
+    if (panNumber !== undefined) provider.panNumber = panNumber;
+    const aadhaarNumber = getVal(generalInfo, 'aadhaarNumber', 'aadhaar');
+    if (aadhaarNumber !== undefined) provider.aadhaarNumber = aadhaarNumber;
+    const state = getVal(generalInfo, 'state');
+    if (state !== undefined) provider.state = state;
+    const city = getVal(generalInfo, 'city');
+    if (city !== undefined) provider.city = city;
+    const area = getVal(generalInfo, 'area');
+    if (area !== undefined) provider.area = area;
+    const emirate = getVal(generalInfo, 'emirate');
+    if (emirate !== undefined) provider.emirate = emirate;
+    const bio = getVal(generalInfo, 'bio');
+    if (bio !== undefined) provider.bio = bio;
+    const phone = getVal(generalInfo, 'phone');
+    if (phone !== undefined) provider.phone = phone;
+    const whatsapp = getVal(generalInfo, 'whatsapp', 'whatsappNumber');
+    if (whatsapp !== undefined) {
+      provider.whatsapp = whatsapp;
+      provider.whatsappNumber = whatsapp;
+    }
+
+    // Work preferences
+    const resolvedCategoryIds =
+      workPreferences.categoryIds ??
+      workPreferences.categoryId ??
+      req.body.categoryIds ??
+      req.body.categoryId;
     if (resolvedCategoryIds !== undefined) {
       provider.categoryIds = normalizeCategoryIds(resolvedCategoryIds);
     }
-    if (workPreferences.subCategoryIds !== undefined) {
-      provider.subCategoryIds = normalizeCategoryIds(workPreferences.subCategoryIds) ?? [];
+    const resolvedSubCategoryIds =
+      workPreferences.subCategoryIds ?? req.body.subCategoryIds;
+    if (resolvedSubCategoryIds !== undefined) {
+      provider.subCategoryIds = normalizeCategoryIds(resolvedSubCategoryIds) ?? [];
     }
-    if (workPreferences.monthlySalary === undefined && workPreferences.monthlySalaryAed !== undefined) {
-      workPreferences.monthlySalary = workPreferences.monthlySalaryAed;
+    const resolvedMonthlySalary =
+      workPreferences.monthlySalary ??
+      workPreferences.monthlySalaryAed ??
+      req.body.monthlySalary ??
+      req.body.monthlySalaryAed;
+    if (resolvedMonthlySalary !== undefined) {
+      provider.monthlySalary = resolvedMonthlySalary;
     }
+
     WORK_PREFERENCES_FIELDS.forEach((key) => {
-      if (workPreferences[key] !== undefined) provider[key] = workPreferences[key];
+      if (key === 'monthlySalary') return;
+      const val = getVal(workPreferences, key);
+      if (val !== undefined) provider[key] = val;
     });
 
+    // Last job
     LAST_JOB_FIELDS.forEach((key) => {
-      if (lastJob[key] !== undefined) provider.lastWorkingExperience[key] = lastJob[key];
+      const val = getVal(lastJob, key);
+      if (val !== undefined) {
+        if (!provider.lastWorkingExperience) provider.lastWorkingExperience = {};
+        provider.lastWorkingExperience[key] = val;
+      }
     });
-    if (lastJob.jobDescription !== undefined) provider.jobDescription = lastJob.jobDescription;
+    const jobDescription = getVal(lastJob, 'jobDescription') ?? getVal(workPreferences, 'jobDescription');
+    if (jobDescription !== undefined) provider.jobDescription = jobDescription;
 
-    const photoFile = req.files?.photo?.[0];
-    const videoFile = req.files?.video?.[0];
-    // Aadhaar is required (front + back, per the KYC step); PAN is optional.
+    // Files uploaded in this request
+    const photoFile =
+      req.files?.photo?.[0] ||
+      req.files?.image?.[0] ||
+      req.files?.file?.[0] ||
+      req.files?.profilePhoto?.[0];
+    const videoFile = req.files?.video?.[0] || req.files?.introVideo?.[0];
     const aadhaarFrontFile = req.files?.aadhaarFront?.[0];
     const aadhaarBackFile = req.files?.aadhaarBack?.[0];
-    const panCardFile = req.files?.panCard?.[0];
-    const [imageUrl, introVideoUrl, aadhaarFrontUrl, aadhaarBackUrl, panCardUrl] = await Promise.all([
-      photoFile ? uploadBufferToS3(photoFile.buffer, photoFile.mimetype, 'help-zone/photos') : null,
-      videoFile ? uploadBufferToS3(videoFile.buffer, videoFile.mimetype, 'help-zone/videos') : null,
-      aadhaarFrontFile ? uploadBufferToS3(aadhaarFrontFile.buffer, aadhaarFrontFile.mimetype, 'help-zone/kyc') : null,
-      aadhaarBackFile ? uploadBufferToS3(aadhaarBackFile.buffer, aadhaarBackFile.mimetype, 'help-zone/kyc') : null,
-      panCardFile ? uploadBufferToS3(panCardFile.buffer, panCardFile.mimetype, 'help-zone/kyc') : null,
-    ]);
-    if (imageUrl) provider.imageUrl = imageUrl;
-    if (aadhaarFrontUrl) provider.aadhaarFrontUrl = aadhaarFrontUrl;
-    if (aadhaarBackUrl) provider.aadhaarBackUrl = aadhaarBackUrl;
-    if (panCardUrl) provider.panCardUrl = panCardUrl;
-    if (introVideoUrl) {
-      provider.introVideoUrl = introVideoUrl;
-      provider.introVideoThumbnailUrl = undefined;
-      provider.introVideoOriginalUrl = undefined;
-      processIntroVideo(provider._id, videoFile.buffer, introVideoUrl);
+    const panCardFile = req.files?.panCard?.[0] || req.files?.pan?.[0];
+
+    const [uploadedImageUrl, uploadedIntroVideoUrl, uploadedAadhaarFrontUrl, uploadedAadhaarBackUrl, uploadedPanCardUrl] =
+      await Promise.all([
+        photoFile ? uploadBufferToS3(photoFile.buffer, photoFile.mimetype, 'help-zone/photos') : null,
+        videoFile ? uploadBufferToS3(videoFile.buffer, videoFile.mimetype, 'help-zone/videos') : null,
+        aadhaarFrontFile ? uploadBufferToS3(aadhaarFrontFile.buffer, aadhaarFrontFile.mimetype, 'help-zone/kyc') : null,
+        aadhaarBackFile ? uploadBufferToS3(aadhaarBackFile.buffer, aadhaarBackFile.mimetype, 'help-zone/kyc') : null,
+        panCardFile ? uploadBufferToS3(panCardFile.buffer, panCardFile.mimetype, 'help-zone/kyc') : null,
+      ]);
+
+    // Resolve Image URL: uploaded file takes priority, then string URLs from body or generalInfo
+    const resolvedImageUrl =
+      uploadedImageUrl ||
+      req.body.imageUrl ||
+      req.body.photoUrl ||
+      (typeof req.body.photo === 'string' ? req.body.photo : null) ||
+      (typeof req.body.image === 'string' ? req.body.image : null) ||
+      req.body.profilePhoto ||
+      req.body.profilePhotoUrl ||
+      req.body.avatarUrl ||
+      (typeof req.body.avatar === 'string' ? req.body.avatar : null) ||
+      generalInfo.imageUrl ||
+      generalInfo.photoUrl ||
+      (typeof generalInfo.photo === 'string' ? generalInfo.photo : null) ||
+      (typeof generalInfo.image === 'string' ? generalInfo.image : null) ||
+      generalInfo.profilePhoto ||
+      generalInfo.profilePhotoUrl ||
+      generalInfo.avatarUrl ||
+      (typeof generalInfo.avatar === 'string' ? generalInfo.avatar : null) ||
+      (req.body.url && !req.body.aadhaarFrontUrl && !req.body.introVideoUrl ? req.body.url : null);
+
+    if (resolvedImageUrl) provider.imageUrl = resolvedImageUrl;
+
+    // Resolve Aadhaar Front URL
+    const resolvedAadhaarFrontUrl =
+      uploadedAadhaarFrontUrl ||
+      req.body.aadhaarFrontUrl ||
+      (typeof req.body.aadhaarFront === 'string' ? req.body.aadhaarFront : null) ||
+      req.body.aadhaarFrontPhoto ||
+      req.body.aadhaarFrontImage ||
+      generalInfo.aadhaarFrontUrl ||
+      (typeof generalInfo.aadhaarFront === 'string' ? generalInfo.aadhaarFront : null) ||
+      generalInfo.aadhaarFrontPhoto ||
+      kycSection?.aadhaarFrontUrl ||
+      (typeof kycSection?.aadhaarFront === 'string' ? kycSection?.aadhaarFront : null);
+
+    if (resolvedAadhaarFrontUrl) provider.aadhaarFrontUrl = resolvedAadhaarFrontUrl;
+
+    // Resolve Aadhaar Back URL
+    const resolvedAadhaarBackUrl =
+      uploadedAadhaarBackUrl ||
+      req.body.aadhaarBackUrl ||
+      (typeof req.body.aadhaarBack === 'string' ? req.body.aadhaarBack : null) ||
+      req.body.aadhaarBackPhoto ||
+      req.body.aadhaarBackImage ||
+      generalInfo.aadhaarBackUrl ||
+      (typeof generalInfo.aadhaarBack === 'string' ? generalInfo.aadhaarBack : null) ||
+      generalInfo.aadhaarBackPhoto ||
+      kycSection?.aadhaarBackUrl ||
+      (typeof kycSection?.aadhaarBack === 'string' ? kycSection?.aadhaarBack : null);
+
+    if (resolvedAadhaarBackUrl) provider.aadhaarBackUrl = resolvedAadhaarBackUrl;
+
+    // Resolve PAN Card URL
+    const resolvedPanCardUrl =
+      uploadedPanCardUrl ||
+      req.body.panCardUrl ||
+      (typeof req.body.panCard === 'string' ? req.body.panCard : null) ||
+      req.body.panUrl ||
+      req.body.panCardPhoto ||
+      req.body.panCardImage ||
+      generalInfo.panCardUrl ||
+      (typeof generalInfo.panCard === 'string' ? generalInfo.panCard : null) ||
+      generalInfo.panUrl ||
+      generalInfo.panCardPhoto ||
+      kycSection?.panCardUrl ||
+      (typeof kycSection?.panCard === 'string' ? kycSection?.panCard : null);
+
+    if (resolvedPanCardUrl) provider.panCardUrl = resolvedPanCardUrl;
+
+    // Resolve Intro Video URL
+    const resolvedIntroVideoUrl =
+      uploadedIntroVideoUrl ||
+      req.body.introVideoUrl ||
+      req.body.videoUrl ||
+      (typeof req.body.introVideo === 'string' ? req.body.introVideo : null) ||
+      (typeof req.body.video === 'string' ? req.body.video : null) ||
+      generalInfo.introVideoUrl ||
+      generalInfo.videoUrl ||
+      (typeof generalInfo.introVideo === 'string' ? generalInfo.introVideo : null) ||
+      (typeof generalInfo.video === 'string' ? generalInfo.video : null);
+
+    if (resolvedIntroVideoUrl) {
+      provider.introVideoUrl = resolvedIntroVideoUrl;
+      const customThumbnail =
+        req.body.introVideoThumbnailUrl ||
+        req.body.thumbnailUrl ||
+        generalInfo.introVideoThumbnailUrl ||
+        generalInfo.thumbnailUrl;
+      if (customThumbnail) {
+        provider.introVideoThumbnailUrl = customThumbnail;
+      }
+      if (videoFile?.buffer) {
+        provider.introVideoThumbnailUrl = customThumbnail || undefined;
+        provider.introVideoOriginalUrl = undefined;
+        processIntroVideo(provider._id, videoFile.buffer, resolvedIntroVideoUrl);
+      }
     }
 
-    // Multiple ID proofs: generalInfo.idProofs is an array of
-    // { idType, idNumber }, paired by position with files uploaded under
-    // the `idDocuments` field (same order). Sending either one replaces
-    // the whole kycDocuments list — same full-replace behavior as
-    // languages/skills above, not a per-entry merge.
-    //
-    // Backward compatibility: older clients send a single file under the
-    // legacy `idDocument` field name, with flat generalInfo.idType/
-    // idNumber instead of an idProofs array. Both are folded in here as
-    // a single-entry equivalent.
+    // KYC Documents / ID proofs
     const legacyIdDocumentFile = req.files?.idDocument?.[0];
     const idDocumentFiles = [...(req.files?.idDocuments || []), ...(legacyIdDocumentFile ? [legacyIdDocumentFile] : [])];
-    let idProofsMeta = Array.isArray(generalInfo.idProofs) ? generalInfo.idProofs : [];
-    if (!idProofsMeta.length && (generalInfo.idType !== undefined || generalInfo.idNumber !== undefined)) {
-      idProofsMeta = [{ idType: generalInfo.idType, idNumber: generalInfo.idNumber }];
+
+    let idProofsMeta = Array.isArray(generalInfo.idProofs)
+      ? generalInfo.idProofs
+      : Array.isArray(req.body.idProofs)
+      ? req.body.idProofs
+      : Array.isArray(generalInfo.kycDocuments)
+      ? generalInfo.kycDocuments
+      : Array.isArray(req.body.kycDocuments)
+      ? req.body.kycDocuments
+      : [];
+
+    const singleIdDocUrl =
+      (typeof req.body.idDocument === 'string' ? req.body.idDocument : null) ||
+      req.body.idDocumentUrl ||
+      (typeof generalInfo.idDocument === 'string' ? generalInfo.idDocument : null) ||
+      generalInfo.idDocumentUrl;
+
+    if (
+      !idProofsMeta.length &&
+      (generalInfo.idType !== undefined ||
+        generalInfo.idNumber !== undefined ||
+        req.body.idType !== undefined ||
+        req.body.idNumber !== undefined ||
+        singleIdDocUrl)
+    ) {
+      idProofsMeta = [
+        {
+          idType: generalInfo.idType ?? req.body.idType,
+          idNumber: generalInfo.idNumber ?? req.body.idNumber,
+          idDocumentUrl: singleIdDocUrl,
+        },
+      ];
     }
+
     if (idProofsMeta.length || idDocumentFiles.length) {
-      const idDocumentUrls = await Promise.all(
+      const uploadedIdUrls = await Promise.all(
         idDocumentFiles.map((file) => uploadBufferToS3(file.buffer, file.mimetype, 'help-zone/kyc'))
       );
-      const count = Math.max(idProofsMeta.length, idDocumentUrls.length);
-      provider.kycDocuments = Array.from({ length: count }, (_, i) => ({
-        idType: idProofsMeta[i]?.idType,
-        idNumber: idProofsMeta[i]?.idNumber,
-        idDocumentUrl: idDocumentUrls[i],
-      }));
+      const count = Math.max(idProofsMeta.length, uploadedIdUrls.length);
+      provider.kycDocuments = Array.from({ length: count }, (_, i) => {
+        const meta = idProofsMeta[i] || {};
+        const docUrl =
+          uploadedIdUrls[i] ||
+          meta.idDocumentUrl ||
+          meta.url ||
+          meta.documentUrl ||
+          meta.idProofUrl ||
+          (typeof meta === 'string' ? meta : undefined);
+        return {
+          idType: meta.idType,
+          idNumber: meta.idNumber,
+          idDocumentUrl: docUrl,
+        };
+      });
     }
 
     markSubmittedForReview(provider);

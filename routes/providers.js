@@ -20,7 +20,13 @@ const { IMAGE_MIMETYPES, ID_DOCUMENT_MIMETYPES, isVideoMimetype } = require('../
 const router = express.Router();
 
 const photoAndIdFilter = (req, file, cb) => {
-  if (file.fieldname === 'photo') {
+  if (
+    file.fieldname === 'photo' ||
+    file.fieldname === 'image' ||
+    file.fieldname === 'file' ||
+    file.fieldname === 'profilePhoto' ||
+    file.fieldname === 'avatar'
+  ) {
     if (!IMAGE_MIMETYPES.includes(file.mimetype)) {
       const error = new Error(MESSAGES.provider.photoInvalidType);
       error.statusCode = 400;
@@ -33,7 +39,10 @@ const photoAndIdFilter = (req, file, cb) => {
     file.fieldname === 'idDocuments' ||
     file.fieldname === 'aadhaarFront' ||
     file.fieldname === 'aadhaarBack' ||
-    file.fieldname === 'panCard'
+    file.fieldname === 'panCard' ||
+    file.fieldname === 'pan' ||
+    file.fieldname === 'document' ||
+    file.fieldname === 'doc'
   ) {
     if (!ID_DOCUMENT_MIMETYPES.includes(file.mimetype)) {
       const error = new Error(MESSAGES.provider.idDocumentInvalidType);
@@ -60,7 +69,7 @@ const completeProfileUpload = multer({
   storage: multer.memoryStorage(),
   // No file-size limit — mobile intro videos can be large.
   fileFilter: (req, file, cb) => {
-    if (file.fieldname === 'video') {
+    if (file.fieldname === 'video' || file.fieldname === 'introVideo') {
       // application/octet-stream allowed here (but not via isVideoMimetype's
       // default) since some Android camera apps report that generic type
       // for a recorded video specifically on this field.
@@ -81,12 +90,18 @@ const completeProfileUpload = multer({
 const handleCompleteProfileUpload = (req, res, next) => {
   completeProfileUpload.fields([
     { name: 'photo', maxCount: 1 },
+    { name: 'image', maxCount: 1 },
+    { name: 'file', maxCount: 1 },
+    { name: 'profilePhoto', maxCount: 1 },
+    { name: 'avatar', maxCount: 1 },
     { name: 'idDocuments', maxCount: 10 },
     { name: 'idDocument', maxCount: 1 },
     { name: 'aadhaarFront', maxCount: 1 },
     { name: 'aadhaarBack', maxCount: 1 },
     { name: 'panCard', maxCount: 1 },
+    { name: 'pan', maxCount: 1 },
     { name: 'video', maxCount: 1 },
+    { name: 'introVideo', maxCount: 1 },
   ])(req, res, (err) => {
     if (err) {
       const status = err.statusCode || 400;
@@ -110,11 +125,52 @@ router.get('/list', listProviders);
 router.get('/me', protectProvider, getMe);
 router.put('/me', protectProvider, updateMyProfile);
 
-// Profile completion (requires the provider's own login token): submits
-// General info + Work preferences + Last job from the 4-step form in one
-// call. See completeProfile in the controller for the body shape.
+// Profile completion: submits General info + Work preferences + Last job + KYC.
+// Supports both /me/complete-profile and /complete-register aliases (both POST and PUT).
 router.post(
   '/me/complete-profile',
+  protectProvider,
+  handleCompleteProfileUpload,
+  completeProfile
+);
+router.post(
+  '/complete-profile',
+  protectProvider,
+  handleCompleteProfileUpload,
+  completeProfile
+);
+router.post(
+  '/me/complete-register',
+  protectProvider,
+  handleCompleteProfileUpload,
+  completeProfile
+);
+router.post(
+  '/complete-register',
+  protectProvider,
+  handleCompleteProfileUpload,
+  completeProfile
+);
+router.put(
+  '/me/complete-profile',
+  protectProvider,
+  handleCompleteProfileUpload,
+  completeProfile
+);
+router.put(
+  '/complete-profile',
+  protectProvider,
+  handleCompleteProfileUpload,
+  completeProfile
+);
+router.put(
+  '/me/complete-register',
+  protectProvider,
+  handleCompleteProfileUpload,
+  completeProfile
+);
+router.put(
+  '/complete-register',
   protectProvider,
   handleCompleteProfileUpload,
   completeProfile
@@ -125,7 +181,13 @@ router.post(
   '/register',
   registerUpload.fields([
     { name: 'photo', maxCount: 1 },
+    { name: 'image', maxCount: 1 },
+    { name: 'file', maxCount: 1 },
+    { name: 'profilePhoto', maxCount: 1 },
     { name: 'idDocument', maxCount: 1 },
+    { name: 'aadhaarFront', maxCount: 1 },
+    { name: 'aadhaarBack', maxCount: 1 },
+    { name: 'panCard', maxCount: 1 },
   ]),
   register
 );

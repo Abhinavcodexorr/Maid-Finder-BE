@@ -4,11 +4,19 @@ const User = require('../models/User');
 const MESSAGES = require('../config/errorMessages.json');
 const { releaseExpiredBlock } = require('../utils/customerBlock');
 
-const protect = async (req, res, next) => {
-  let token;
-  if (req.headers.authorization?.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
+const extractToken = (req) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader) {
+    if (authHeader.startsWith('Bearer ')) {
+      return authHeader.slice(7).trim();
+    }
+    return authHeader.trim();
   }
+  return req.headers['x-access-token'] || req.body?.token || req.query?.token || null;
+};
+
+const protect = async (req, res, next) => {
+  const token = extractToken(req);
   if (!token) {
     return res.status(401).json({ success: false, message: MESSAGES.auth.notAuthorized });
   }
@@ -31,11 +39,26 @@ const protect = async (req, res, next) => {
   }
 };
 
-const protectProvider = async (req, res, next) => {
-  let token;
-  if (req.headers.authorization?.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
+const optionalProtect = async (req, res, next) => {
+  const token = extractToken(req);
+  if (!token) return next();
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.type === 'customer') {
+      const user = await releaseExpiredBlock(await User.findById(decoded.id).select('-password'));
+      if (user && user.isActive) req.user = user;
+    } else {
+      const provider = await Provider.findById(decoded.id).select('-password');
+      if (provider && provider.isActive) req.provider = provider;
+    }
+  } catch (_) {
+    // Optional auth: ignore token errors and let request proceed unauthenticated
   }
+  next();
+};
+
+const protectProvider = async (req, res, next) => {
+  const token = extractToken(req);
   if (!token) {
     return res.status(401).json({ success: false, message: MESSAGES.auth.notAuthorized });
   }
@@ -55,10 +78,7 @@ const protectProvider = async (req, res, next) => {
 };
 
 const protectCustomer = async (req, res, next) => {
-  let token;
-  if (req.headers.authorization?.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
-  }
+  const token = extractToken(req);
   if (!token) {
     return res.status(401).json({ success: false, message: MESSAGES.auth.notAuthorized });
   }
@@ -77,4 +97,4 @@ const protectCustomer = async (req, res, next) => {
   }
 };
 
-module.exports = { protect, protectProvider, protectCustomer };
+module.exports = { protect, optionalProtect, protectProvider, protectCustomer };

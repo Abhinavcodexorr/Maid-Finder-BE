@@ -7,7 +7,14 @@ const MESSAGES = require('../config/errorMessages.json');
 // just takes the first one that's actually present.
 exports.uploadFile = async (req, res, next) => {
   try {
-    const file = req.files?.file?.[0] || req.files?.image?.[0] || req.files?.video?.[0];
+    const file =
+      (Array.isArray(req.files) ? req.files[0] : null) ||
+      req.file ||
+      req.files?.file?.[0] ||
+      req.files?.image?.[0] ||
+      req.files?.video?.[0] ||
+      req.files?.photo?.[0] ||
+      (req.files && typeof req.files === 'object' ? Object.values(req.files)[0]?.[0] : null);
     if (!file) {
       return res.status(400).json({ success: false, message: MESSAGES.upload.noFileProvided });
     }
