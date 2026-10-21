@@ -1,4 +1,6 @@
 const Provider = require('../models/Provider');
+const User = require('../models/User');
+const Booking = require('../models/Booking');
 const MESSAGES = require('../config/errorMessages.json');
 const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
 const formatMessage = require('../utils/formatMessage');
@@ -213,3 +215,68 @@ exports.deleteProvider = async (req, res, next) => {
     next(error);
   }
 };
+
+// ---------------------------------------------------------------------
+// Customers (the User model — families, not providers). The admin panel's
+// account column reuses `isActive` as its status: there is no separate
+// "suspended" state in the User model, so the admin UI is expected to treat
+// "Suspended" as a disabled account the same as "Inactive" rather than this
+// API inventing a third status that nothing writes.
+// ---------------------------------------------------------------------
+
+const serializeCustomerForAdmin = (user, bookingCountsByUserId) => {
+  const { _id, password, __v, ...rest } = user.toObject();
+  return { id: _id, ...rest, bookingCount: bookingCountsByUserId.get(String(_id)) ?? 0 };
+};
+
+exports.listCustomers = async (req, res, next) => {
+  try {
+    const { status, q, page = 1, limit = 20 } = req.query;
+    const query = {};
+
+    if (status === 'active') query.isActive = true;
+    else if (status === 'inactive' || status === 'suspended') query.isActive = false;
+
+    if (q && q.trim()) {
+      const regex = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      query.$or = [{ name: regex }, { email: regex }, { phone: regex }, { emirate: regex }, { address: regex }];
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+    const [users, total, allActiveCount, bookingCounts] = await Promise.all([
+      User.find(query).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+      User.countDocuments(query),
+      User.countDocuments({ isActive: true }),
+      Booking.aggregate([{ $group: { _id: '$user', count: { $sum: 1 } } }]),
+    ]);
+    const bookingCountsByUserId = new Map(bookingCounts.map((row) => [String(row._id), row.count]));
+    const totalCustomers = await User.countDocuments();
+
+    res.json({
+      success: true,
+      count: users.length,
+      total,
+      counts: { active: allActiveCount, inactive: totalCustomers - allActiveCount },
+      page: Number(page),
+      pages: Math.ceil(total / Number(limit)),
+      data: users.map((u) => serializeCustomerForAdmin(u, bookingCountsByUserId)),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const setCustomerActive = (isActive) => async (req, res, next) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.params.id, { isActive }, { new: true });
+    if (!user) {
+      return res.status(404).json({ success: false, message: MESSAGES.auth.userNotFound });
+    }
+    res.json({ success: true, data: serializeCustomerForAdmin(user, new Map()) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.activateCustomer = setCustomerActive(true);
+exports.deactivateCustomer = setCustomerActive(false);

@@ -25,6 +25,12 @@
     "verifyRequiresPending": "Only a new request can be moved to verification (current status: {status})",
     "decisionRequiresVerification": "Only a provider in verification can be approved or rejected (current status: {status})"
   },
+  "plan": {
+    "notFound": "Plan not found",
+    "nameRequired": "Plan name is required",
+    "priceRequired": "A valid, non-negative price is required",
+    "durationRequired": "A duration of at least 1 day is required"
+  },
   "service": {
     "notFound": "Service not found",
     "nameRequired": "Service name is required",
