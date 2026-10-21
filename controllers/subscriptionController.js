@@ -324,3 +324,5 @@ exports.getCustomerSubscriptionsAdmin = async (req, res, next) => {
 };
 
 exports.summariesFor = summariesFor;
+exports.summarize = summarize;
+exports.serializeSubscription = serializeSubscription;
