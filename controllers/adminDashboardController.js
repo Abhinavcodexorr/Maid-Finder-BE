@@ -12,7 +12,8 @@ const STALE_VERIFICATION_DAYS = 3;
 const TIMEZONE_PATTERN = /^([A-Za-z_]+(\/[A-Za-z_+\-0-9]+)*|[+-]\d{2}:?\d{2})$/;
 
 const hasText = (expr) => ({ $gt: [{ $strLenCP: { $ifNull: [expr, ''] } }, 0] });
-const idDocument = { $arrayElemAt: ['$kycDocuments.idDocumentUrl', 0] };
+// ID proof = the Aadhaar front from the new KYC step, or the first legacy kycDocuments file.
+const idDocument = { $ifNull: ['$aadhaarFrontUrl', { $arrayElemAt: ['$kycDocuments.idDocumentUrl', 0] }] };
 const has = (cond) => ({ $cond: [cond, 1, 0] });
 const inStage = (...names) => ({ $in: ['$applicationStatus', names] });
 const experience = { $ifNull: ['$experienceYears', 0] };
@@ -65,24 +66,30 @@ const buildFacets = ({ timezone, since, staleNewBefore, staleVerificationBefore 
         total: { $sum: 1 },
         photo: { $sum: has(hasText('$imageUrl')) },
         idProof: { $sum: has(hasText(idDocument)) },
+        // PAN card = the new KYC step's file, or a legacy kycDocuments entry typed as PAN.
         panCard: {
           $sum: has({
-            $gt: [
+            $or: [
+              hasText('$panCardUrl'),
               {
-                $size: {
-                  $filter: {
-                    input: { $ifNull: ['$kycDocuments', []] },
-                    as: 'doc',
-                    cond: {
-                      $and: [
-                        { $regexMatch: { input: { $ifNull: ['$$doc.idType', ''] }, regex: /pan/i } },
-                        hasText('$$doc.idDocumentUrl'),
-                      ],
+                $gt: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: { $ifNull: ['$kycDocuments', []] },
+                        as: 'doc',
+                        cond: {
+                          $and: [
+                            { $regexMatch: { input: { $ifNull: ['$$doc.idType', ''] }, regex: /pan/i } },
+                            hasText('$$doc.idDocumentUrl'),
+                          ],
+                        },
+                      },
                     },
                   },
-                },
+                  0,
+                ],
               },
-              0,
             ],
           }),
         },

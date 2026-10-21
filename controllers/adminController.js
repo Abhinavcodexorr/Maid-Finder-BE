@@ -106,6 +106,7 @@ exports.listProviders = async (req, res, next) => {
             { city: regex },
             { mobileNumber: regex },
             { panNumber: regex },
+            { aadhaarNumber: regex },
             { 'kycDocuments.idNumber': regex },
           ],
         },
