@@ -28,7 +28,13 @@ const photoAndIdFilter = (req, file, cb) => {
     }
     return cb(null, true);
   }
-  if (file.fieldname === 'idDocument' || file.fieldname === 'idDocuments') {
+  if (
+    file.fieldname === 'idDocument' ||
+    file.fieldname === 'idDocuments' ||
+    file.fieldname === 'aadhaarFront' ||
+    file.fieldname === 'aadhaarBack' ||
+    file.fieldname === 'panCard'
+  ) {
     if (!ID_DOCUMENT_MIMETYPES.includes(file.mimetype)) {
       const error = new Error(MESSAGES.provider.idDocumentInvalidType);
       error.statusCode = 400;
@@ -77,6 +83,9 @@ const handleCompleteProfileUpload = (req, res, next) => {
     { name: 'photo', maxCount: 1 },
     { name: 'idDocuments', maxCount: 10 },
     { name: 'idDocument', maxCount: 1 },
+    { name: 'aadhaarFront', maxCount: 1 },
+    { name: 'aadhaarBack', maxCount: 1 },
+    { name: 'panCard', maxCount: 1 },
     { name: 'video', maxCount: 1 },
   ])(req, res, (err) => {
     if (err) {

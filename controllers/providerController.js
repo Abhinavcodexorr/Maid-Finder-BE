@@ -13,6 +13,8 @@ const serializeProvider = (provider) => ({
   id: provider._id,
   email: provider.email,
   fullName: provider.fullName,
+  firstName: provider.firstName,
+  lastName: provider.lastName,
   gender: provider.gender,
   nationality: provider.nationality,
   categoryIds: provider.categoryIds,
@@ -31,6 +33,11 @@ const serializeProvider = (provider) => ({
   phone: provider.phone,
   whatsapp: provider.whatsapp,
   bio: provider.bio,
+  panNumber: provider.panNumber,
+  panCardUrl: provider.panCardUrl,
+  aadhaarNumber: provider.aadhaarNumber,
+  aadhaarFrontUrl: provider.aadhaarFrontUrl,
+  aadhaarBackUrl: provider.aadhaarBackUrl,
   kycDocuments: (provider.kycDocuments || []).map((doc) => ({
     idType: doc.idType,
     idDocumentUrl: doc.idDocumentUrl,
@@ -339,10 +346,11 @@ exports.getProviderById = async (req, res, next) => {
 };
 
 const ALLOWED_PROFILE_FIELDS = [
-  'fullName', 'gender', 'nationality', 'categoryIds', 'subCategoryIds', 'area', 'city', 'state',
+  'fullName', 'firstName', 'lastName', 'gender', 'nationality', 'categoryIds', 'subCategoryIds', 'area', 'city', 'state',
   'countryCode', 'mobileNumber', 'whatsappNumber', 'emirate', 'experienceYears',
   'monthlySalary', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
-  'age', 'dateOfBirth', 'panNumber', 'maritalStatus', 'religion', 'availability',
+  'age', 'dateOfBirth', 'panNumber', 'panCardUrl', 'aadhaarNumber', 'aadhaarFrontUrl', 'aadhaarBackUrl',
+  'maritalStatus', 'religion', 'availability',
   'preferredJob', 'duration', 'languages', 'education', 'certificate',
   'lastWorkingExperience', 'jobDescription',
   'profileComplete',
@@ -429,6 +437,8 @@ exports.completeProfile = async (req, res, next) => {
     // signup for OTP-created accounts, so this is the only place that
     // name ever gets set for them. Also accepts firstName/lastName,
     // composed into fullName, matching how register() already does it.
+    if (generalInfo.firstName !== undefined) provider.firstName = generalInfo.firstName;
+    if (generalInfo.lastName !== undefined) provider.lastName = generalInfo.lastName;
     if (generalInfo.fullName !== undefined) {
       provider.fullName = generalInfo.fullName;
     } else if (generalInfo.firstName !== undefined || generalInfo.lastName !== undefined) {
@@ -441,6 +451,7 @@ exports.completeProfile = async (req, res, next) => {
     if (generalInfo.maritalStatus !== undefined) provider.maritalStatus = generalInfo.maritalStatus;
     if (generalInfo.religion !== undefined) provider.religion = generalInfo.religion;
     if (generalInfo.panNumber !== undefined) provider.panNumber = generalInfo.panNumber;
+    if (generalInfo.aadhaarNumber !== undefined) provider.aadhaarNumber = generalInfo.aadhaarNumber;
     if (generalInfo.state !== undefined) provider.state = generalInfo.state;
     if (generalInfo.city !== undefined) provider.city = generalInfo.city;
 
@@ -468,11 +479,21 @@ exports.completeProfile = async (req, res, next) => {
 
     const photoFile = req.files?.photo?.[0];
     const videoFile = req.files?.video?.[0];
-    const [imageUrl, introVideoUrl] = await Promise.all([
+    // Aadhaar is required (front + back, per the KYC step); PAN is optional.
+    const aadhaarFrontFile = req.files?.aadhaarFront?.[0];
+    const aadhaarBackFile = req.files?.aadhaarBack?.[0];
+    const panCardFile = req.files?.panCard?.[0];
+    const [imageUrl, introVideoUrl, aadhaarFrontUrl, aadhaarBackUrl, panCardUrl] = await Promise.all([
       photoFile ? uploadBufferToS3(photoFile.buffer, photoFile.mimetype, 'help-zone/photos') : null,
       videoFile ? uploadBufferToS3(videoFile.buffer, videoFile.mimetype, 'help-zone/videos') : null,
+      aadhaarFrontFile ? uploadBufferToS3(aadhaarFrontFile.buffer, aadhaarFrontFile.mimetype, 'help-zone/kyc') : null,
+      aadhaarBackFile ? uploadBufferToS3(aadhaarBackFile.buffer, aadhaarBackFile.mimetype, 'help-zone/kyc') : null,
+      panCardFile ? uploadBufferToS3(panCardFile.buffer, panCardFile.mimetype, 'help-zone/kyc') : null,
     ]);
     if (imageUrl) provider.imageUrl = imageUrl;
+    if (aadhaarFrontUrl) provider.aadhaarFrontUrl = aadhaarFrontUrl;
+    if (aadhaarBackUrl) provider.aadhaarBackUrl = aadhaarBackUrl;
+    if (panCardUrl) provider.panCardUrl = panCardUrl;
     if (introVideoUrl) {
       provider.introVideoUrl = introVideoUrl;
       provider.introVideoThumbnailUrl = undefined;

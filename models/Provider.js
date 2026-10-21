@@ -24,6 +24,17 @@ const providerSchema = new mongoose.Schema(
       trim: true,
       maxlength: [100, 'Full name cannot exceed 100 characters'],
     },
+    // Details step collects these two separately; fullName is kept in sync
+    // from them in the pre-save hook below (same pattern as age<-dateOfBirth)
+    // so existing code reading fullName (admin listing, search) still works.
+    firstName: {
+      type: String,
+      trim: true,
+    },
+    lastName: {
+      type: String,
+      trim: true,
+    },
     gender: {
       type: String,
       trim: true,
@@ -149,6 +160,23 @@ const providerSchema = new mongoose.Schema(
       uppercase: true,
       maxlength: [10, 'PAN number cannot exceed 10 characters'],
     },
+    // PAN card is optional in the KYC step, so this has no required flag.
+    panCardUrl: {
+      type: String,
+      trim: true,
+    },
+    aadhaarNumber: {
+      type: String,
+      trim: true,
+    },
+    aadhaarFrontUrl: {
+      type: String,
+      trim: true,
+    },
+    aadhaarBackUrl: {
+      type: String,
+      trim: true,
+    },
     isActive: {
       type: Boolean,
       default: true,
@@ -268,6 +296,13 @@ providerSchema.pre('save', async function (next) {
 providerSchema.pre('save', function (next) {
   if (this.isModified('mobileNumber')) {
     this.mobileNumberDigits = this.mobileNumber ? this.mobileNumber.replace(/\D/g, '') : undefined;
+  }
+  next();
+});
+
+providerSchema.pre('save', function (next) {
+  if ((this.isModified('firstName') || this.isModified('lastName')) && !this.isModified('fullName')) {
+    this.fullName = `${this.firstName || ''} ${this.lastName || ''}`.trim();
   }
   next();
 });
