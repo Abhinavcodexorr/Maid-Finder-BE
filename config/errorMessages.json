@@ -89,5 +89,9 @@
   "generic": {
     "loggedOut": "Logged out successfully",
     "healthOk": "Help Zone API is running"
+  },
+  "subscription": {
+    "planUnavailable": "This plan is not available",
+    "notFound": "Subscription not found"
   }
 }

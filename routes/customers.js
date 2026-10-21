@@ -3,6 +3,7 @@ const { register, login, getMe } = require('../controllers/customerController');
 const { getDashboard } = require('../controllers/dashboardController');
 const { createBooking, getMyBookings, cancelBooking } = require('../controllers/bookingController');
 const { addFavourite, removeFavourite, getMyFavourites } = require('../controllers/favouriteController');
+const { subscribe, getMySubscription } = require('../controllers/subscriptionController');
 const { protectCustomer } = require('../middleware/auth');
 
 const router = express.Router();
@@ -16,6 +17,9 @@ router.get('/dashboard', protectCustomer, getDashboard);
 router.get('/bookings', protectCustomer, getMyBookings);
 router.post('/bookings', protectCustomer, createBooking);
 router.delete('/bookings/:id', protectCustomer, cancelBooking);
+
+router.get('/subscription', protectCustomer, getMySubscription);
+router.post('/subscription', protectCustomer, subscribe);
 
 router.get('/favourites', protectCustomer, getMyFavourites);
 router.post('/favourites/:maidId', protectCustomer, addFavourite);

@@ -6,6 +6,7 @@ const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
 const formatMessage = require('../utils/formatMessage');
 const { APPLICATION_STATUS } = require('../config/constants');
 const { releaseExpiredBlock, releaseAllExpiredBlocks } = require('../utils/customerBlock');
+const { summariesFor } = require('./subscriptionController');
 
 // Admin is a trusted, internal-only view, so this returns the full provider
 // document (unlike the public listMaids/getProviderById in providerController,
@@ -356,6 +357,7 @@ exports.listCustomers = async (req, res, next) => {
     const bookingCountsByUserId = new Map(bookingCounts.map((row) => [String(row._id), row.count]));
     const lastBookingByUserId = new Map(bookingCounts.map((row) => [String(row._id), row.lastBookingAt]));
     const totalCustomers = await User.countDocuments();
+    const plans = await summariesFor(users.map((u) => u._id));
 
     res.json({
       success: true,
@@ -364,7 +366,12 @@ exports.listCustomers = async (req, res, next) => {
       counts: { active: allActiveCount, inactive: totalCustomers - allActiveCount, total: totalCustomers },
       page: Number(page),
       pages: Math.ceil(total / Number(limit)),
-      data: users.map((u) => ({ ...serializeCustomerForAdmin(u, bookingCountsByUserId), lastBookingAt: lastBookingByUserId.get(String(u._id)) ?? null })),
+      data: users.map((u) => ({
+        ...serializeCustomerForAdmin(u, bookingCountsByUserId),
+        lastBookingAt: lastBookingByUserId.get(String(u._id)) ?? null,
+        // The plan they are on now (null = none); the full purchase history is in the single-customer detail.
+        currentPlan: plans.get(String(u._id))?.current ?? null,
+      })),
     });
   } catch (error) {
     next(error);
@@ -515,11 +522,14 @@ exports.getCustomer = async (req, res, next) => {
     ]);
     const stats = Object.fromEntries(byStatus.map((row) => [row._id, row.count]));
     const total = byStatus.reduce((sum, row) => sum + row.count, 0);
+    const subscription = (await summariesFor([user._id])).get(String(user._id));
 
     res.json({
       success: true,
       data: {
         ...serializeCustomerForAdmin(user, new Map([[String(user._id), total]]), { detail: true }),
+        currentPlan: subscription.current,
+        subscription,
         bookingStats: { total, ...stats },
         recentBookings: recent.map((b) => ({
           id: b._id,
