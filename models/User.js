@@ -30,6 +30,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    planName: {
+      type: String,
+      trim: true,
+    },
     // false = blocked/deactivated: the account can no longer sign in or use the app.
     isActive: {
       type: Boolean,

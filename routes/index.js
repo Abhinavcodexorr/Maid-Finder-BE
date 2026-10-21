@@ -19,6 +19,8 @@ router.post('/logout', protect, logout);
 router.use('/upload', uploadRoutes);
 router.use('/providers', providerRoutes);
 router.use('/user', userRoutes);
+router.use('/customer', userRoutes);
+router.use('/customers', userRoutes);
 router.use('/services', serviceRoutes);
 router.use('/plans', planRoutes);
 router.use('/admin', adminRoutes);

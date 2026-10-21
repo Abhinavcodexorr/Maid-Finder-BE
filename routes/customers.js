@@ -19,7 +19,12 @@ router.post('/bookings', protectCustomer, createBooking);
 router.delete('/bookings/:id', protectCustomer, cancelBooking);
 
 router.get('/subscription', protectCustomer, getMySubscription);
+router.get('/subscriptions', protectCustomer, getMySubscription);
 router.post('/subscription', protectCustomer, subscribe);
+router.post('/subscriptions', protectCustomer, subscribe);
+router.post('/subscribe', protectCustomer, subscribe);
+router.post('/plan/subscribe', protectCustomer, subscribe);
+router.post('/plan/:id/subscribe', protectCustomer, subscribe);
 
 router.get('/favourites', protectCustomer, getMyFavourites);
 router.post('/favourites/:maidId', protectCustomer, addFavourite);

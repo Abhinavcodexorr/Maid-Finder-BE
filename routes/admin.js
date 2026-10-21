@@ -1,5 +1,10 @@
 const express = require('express');
-const { grantSubscription, cancelSubscription } = require('../controllers/subscriptionController');
+const {
+  grantSubscription,
+  cancelSubscription,
+  listAllSubscriptionsAdmin,
+  getCustomerSubscriptionsAdmin,
+} = require('../controllers/subscriptionController');
 const adminAuth = require('../middleware/adminAuth');
 const {
   listProviders,
@@ -55,8 +60,11 @@ router.delete('/providers/:id', deleteProvider);
 
 router.get('/customers', listCustomers);
 router.get('/customers/:id', getCustomer);
+router.get('/customers/:id/subscriptions', getCustomerSubscriptionsAdmin);
+router.get('/customers/:id/subscription', getCustomerSubscriptionsAdmin);
 router.post('/customers/:id/subscriptions', grantSubscription);
 router.patch('/customers/:id/subscriptions/:subId/cancel', cancelSubscription);
+router.get('/subscriptions', listAllSubscriptionsAdmin);
 router.patch('/customers/:id/flag', flagCustomer);
 router.post('/customers/:id/notes', addCustomerNote);
 router.delete('/customers/:id/notes/:noteId', deleteCustomerNote);

@@ -336,7 +336,7 @@ const serializeCustomerForAdmin = (user, bookingCountsByUserId, { detail = false
 
 exports.listCustomers = async (req, res, next) => {
   try {
-    const { status, q, page = 1, limit = 20 } = req.query;
+    const { status, q, plan, planId, page = 1, limit = 20 } = req.query;
     const query = {};
     await releaseAllExpiredBlocks();
 
@@ -346,6 +346,18 @@ exports.listCustomers = async (req, res, next) => {
     if (q && q.trim()) {
       const regex = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       query.$or = [{ name: regex }, { email: regex }, { phone: regex }, { emirate: regex }, { address: regex }];
+    }
+
+    if (plan || planId) {
+      const Subscription = require('../models/Subscription');
+      const planFilter = {};
+      if (planId && /^[0-9a-fA-F]{24}$/.test(String(planId))) {
+        planFilter.plan = planId;
+      } else if (plan) {
+        planFilter.planName = new RegExp(plan.trim(), 'i');
+      }
+      const matchedUserIds = await Subscription.distinct('user', planFilter);
+      query._id = { $in: matchedUserIds };
     }
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -367,12 +379,28 @@ exports.listCustomers = async (req, res, next) => {
       counts: { active: allActiveCount, inactive: totalCustomers - allActiveCount, total: totalCustomers },
       page: Number(page),
       pages: Math.ceil(total / Number(limit)),
-      data: users.map((u) => ({
-        ...serializeCustomerForAdmin(u, bookingCountsByUserId),
-        lastBookingAt: lastBookingByUserId.get(String(u._id)) ?? null,
-        // The plan they are on now (null = none); the full purchase history is in the single-customer detail.
-        currentPlan: plans.get(String(u._id))?.current ?? null,
-      })),
+      data: users.map((u) => {
+        const summary = plans.get(String(u._id)) || { current: null, activePlan: null, latestPlan: null, history: [] };
+        const activeSub = summary.activePlan || null;
+        const latestSub = summary.latestPlan || summary.current || null;
+        const chosenSub = activeSub || latestSub;
+        const planName = chosenSub?.planName || chosenSub?.name || u.planName || null;
+
+        return {
+          ...serializeCustomerForAdmin(u, bookingCountsByUserId),
+          lastBookingAt: lastBookingByUserId.get(String(u._id)) ?? null,
+          currentPlan: chosenSub,
+          plan: chosenSub?.plan || chosenSub || (planName ? { name: planName, planName } : null),
+          planName,
+          planDetails: chosenSub,
+          subscription: summary,
+          subscriptions: summary.history || [],
+          latestSubscription: latestSub,
+          activeSubscription: activeSub,
+          hasActivePlan: Boolean(activeSub),
+          subscriptionStatus: chosenSub?.status || 'none',
+        };
+      }),
     });
   } catch (error) {
     next(error);
@@ -523,14 +551,31 @@ exports.getCustomer = async (req, res, next) => {
     ]);
     const stats = Object.fromEntries(byStatus.map((row) => [row._id, row.count]));
     const total = byStatus.reduce((sum, row) => sum + row.count, 0);
-    const subscription = (await summariesFor([user._id])).get(String(user._id));
+    const summary = (await summariesFor([user._id])).get(String(user._id)) || {
+      current: null,
+      activePlan: null,
+      latestPlan: null,
+      history: [],
+    };
+    const activeSub = summary.activePlan || null;
+    const latestSub = summary.latestPlan || summary.current || null;
+    const chosenSub = activeSub || latestSub;
+    const planName = chosenSub?.planName || chosenSub?.name || user.planName || null;
 
     res.json({
       success: true,
       data: {
         ...serializeCustomerForAdmin(user, new Map([[String(user._id), total]]), { detail: true }),
-        currentPlan: subscription.current,
-        subscription,
+        currentPlan: chosenSub,
+        plan: chosenSub?.plan || chosenSub || (planName ? { name: planName, planName } : null),
+        planName,
+        planDetails: chosenSub,
+        subscription: summary,
+        subscriptions: summary.history || [],
+        latestSubscription: latestSub,
+        activeSubscription: activeSub,
+        hasActivePlan: Boolean(activeSub),
+        subscriptionStatus: chosenSub?.status || 'none',
         bookingStats: { total, ...stats },
         recentBookings: recent.map((b) => ({
           id: b._id,
