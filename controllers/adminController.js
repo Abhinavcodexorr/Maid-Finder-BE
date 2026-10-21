@@ -19,9 +19,57 @@ const serializeProviderForAdmin = (provider) => {
   return { id: _id, ...rest, kyc: rest.kycDocuments?.[0] };
 };
 
+// Filter keys the admin list understands (the panel sends the key, the server does the filtering):
+//   status        pending | verification | approved | rejected | all
+//   q             text search: name, email, phone, city, PAN, ID numbers
+//   categoryId    one or several service keys (comma separated), any match
+//   city, gender  exact match
+//   experience    comma list of buckets: 0-1, 2-4, 5-9, 10+
+//   applied       today | 7d | 30d | older30   (relative to registration time; `tz` = admin's IANA time zone)
+//   sort          newest | oldest | name | experience
+//   page, limit
+const EXPERIENCE_BUCKETS = {
+  '0-1': { $lt: 2 },
+  '2-4': { $gte: 2, $lt: 5 },
+  '5-9': { $gte: 5, $lt: 10 },
+  '10+': { $gte: 10 },
+};
+const PROVIDER_SORTS = {
+  newest: { createdAt: -1 },
+  oldest: { createdAt: 1 },
+  name: { fullName: 1, createdAt: -1 },
+  experience: { experienceYears: -1, createdAt: -1 },
+};
+const DAY_MS = 86_400_000;
+
+// Start of "today" in the admin's time zone (falls back to UTC for an unknown zone).
+const startOfTodayIn = (timeZone, now = new Date()) => {
+  try {
+    const local = new Date(now.toLocaleString('en-US', { timeZone }));
+    const startOfLocal = new Date(local);
+    startOfLocal.setHours(0, 0, 0, 0);
+    return new Date(now.getTime() - (local.getTime() - startOfLocal.getTime()));
+  } catch {
+    const start = new Date(now);
+    start.setUTCHours(0, 0, 0, 0);
+    return start;
+  }
+};
+
+const appliedRange = (key, timeZone) => {
+  const now = new Date();
+  if (key === 'today') return { $gte: startOfTodayIn(timeZone, now) };
+  if (key === '7d') return { $gte: new Date(now - 7 * DAY_MS) };
+  if (key === '30d') return { $gte: new Date(now - 30 * DAY_MS) };
+  if (key === 'older30') return { $lt: new Date(now - 30 * DAY_MS) };
+  return null;
+};
+
 exports.listProviders = async (req, res, next) => {
   try {
-    const { status, categoryId, q, page = 1, limit = 20 } = req.query;
+    const { status, categoryId, city, gender, experience, applied, sort, q, tz } = req.query;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 20));
     const query = {};
 
     if (status && status !== 'all') {
@@ -37,31 +85,78 @@ exports.listProviders = async (req, res, next) => {
       const categoryArr = normalizeCategoryIds(categoryId);
       if (categoryArr.length) query.categoryIds = { $in: categoryArr };
     }
+    if (city && city.trim()) query.city = city.trim();
+    if (gender === 'Male' || gender === 'Female') query.gender = gender;
+    if (experience) {
+      const ranges = experience.split(',').map((key) => EXPERIENCE_BUCKETS[key.trim()]).filter(Boolean);
+      // Providers with no experience entered count as 0 years.
+      if (ranges.length) query.$and = [...(query.$and || []), { $or: ranges.map((range) => ({ experienceYears: range })) }];
+    }
+    const createdRange = appliedRange(applied, tz);
+    if (createdRange) query.createdAt = createdRange;
     if (q && q.trim()) {
       const regex = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      query.$or = [{ fullName: regex }, { email: regex }, { city: regex }, { 'kycDocuments.idNumber': regex }];
+      query.$and = [
+        ...(query.$and || []),
+        {
+          $or: [
+            { fullName: regex },
+            { email: regex },
+            { city: regex },
+            { mobileNumber: regex },
+            { panNumber: regex },
+            { 'kycDocuments.idNumber': regex },
+          ],
+        },
+      ];
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
-    const [providers, total, grouped] = await Promise.all([
-      Provider.find(query).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+    const skip = (page - 1) * limit;
+    // Facets describe the whole stage (not the current filters) so the panel can list real options with counts.
+    const facetMatch = query.applicationStatus ? { applicationStatus: query.applicationStatus } : {};
+    const [providers, total, grouped, facets] = await Promise.all([
+      Provider.find(query).sort(PROVIDER_SORTS[sort] || PROVIDER_SORTS.newest).skip(skip).limit(limit),
       Provider.countDocuments(query),
       // Per-stage totals across all providers, regardless of the filters
       // above, so stage badges stay accurate when the list is paginated.
       Provider.aggregate([{ $group: { _id: '$applicationStatus', count: { $sum: 1 } } }]),
+      Provider.aggregate([
+        { $match: facetMatch },
+        {
+          $facet: {
+            services: [
+              { $unwind: '$categoryIds' },
+              { $group: { _id: '$categoryIds', count: { $sum: 1 } } },
+              { $sort: { count: -1, _id: 1 } },
+            ],
+            cities: [
+              { $match: { city: { $type: 'string', $ne: '' } } },
+              { $group: { _id: { $trim: { input: '$city' } }, count: { $sum: 1 } } },
+              { $sort: { _id: 1 } },
+            ],
+            gender: [{ $match: { gender: { $in: ['Male', 'Female'] } } }, { $group: { _id: '$gender', count: { $sum: 1 } } }],
+          },
+        },
+      ]),
     ]);
     const counts = Object.fromEntries(APPLICATION_STATUS.map((name) => [name, 0]));
     grouped.forEach(({ _id, count }) => {
       if (_id in counts) counts[_id] = count;
     });
+    const f = facets[0] || { services: [], cities: [], gender: [] };
 
     res.json({
       success: true,
       count: providers.length,
       total,
       counts,
-      page: Number(page),
-      pages: Math.ceil(total / Number(limit)),
+      page,
+      pages: Math.ceil(total / limit),
+      facets: {
+        services: f.services.map(({ _id, count }) => ({ key: _id, count })),
+        cities: f.cities.map(({ _id, count }) => ({ name: _id, count })),
+        gender: Object.fromEntries(f.gender.map(({ _id, count }) => [_id, count])),
+      },
       data: providers.map(serializeProviderForAdmin),
     });
   } catch (error) {
