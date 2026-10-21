@@ -23,7 +23,10 @@
     "providerNotFound": "Provider not found",
     "invalidStatus": "status must be one of: {allowed}",
     "verifyRequiresPending": "Only a new request can be moved to verification (current status: {status})",
-    "decisionRequiresVerification": "Only a provider in verification can be approved or rejected (current status: {status})"
+    "decisionRequiresVerification": "Only a provider in verification can be approved or rejected (current status: {status})",
+    "invalidBlockDate": "Choose a block end date in the future",
+    "noteRequired": "Write the note first",
+    "customerHasOpenBookings": "This customer has {count} booking(s) still going ahead. Cancel or complete them first, or block the account instead."
   },
   "plan": {
     "notFound": "Plan not found",

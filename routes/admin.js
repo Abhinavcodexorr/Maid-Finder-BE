@@ -11,6 +11,12 @@ const {
   listCustomers,
   activateCustomer,
   deactivateCustomer,
+  getCustomer,
+  flagCustomer,
+  addCustomerNote,
+  deleteCustomerNote,
+  updateCustomer,
+  deleteCustomer,
 } = require('../controllers/adminController');
 
 const { getAdminDashboard } = require('../controllers/adminDashboardController');
@@ -47,6 +53,12 @@ router.patch('/providers/:id', updateProvider);
 router.delete('/providers/:id', deleteProvider);
 
 router.get('/customers', listCustomers);
+router.get('/customers/:id', getCustomer);
+router.patch('/customers/:id/flag', flagCustomer);
+router.post('/customers/:id/notes', addCustomerNote);
+router.delete('/customers/:id/notes/:noteId', deleteCustomerNote);
+router.patch('/customers/:id', updateCustomer);
+router.delete('/customers/:id', deleteCustomer);
 router.patch('/customers/:id/activate', activateCustomer);
 router.patch('/customers/:id/deactivate', deactivateCustomer);
 

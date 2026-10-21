@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const Provider = require('../models/Provider');
 const User = require('../models/User');
 const MESSAGES = require('../config/errorMessages.json');
+const { releaseExpiredBlock } = require('../utils/customerBlock');
 
 const protect = async (req, res, next) => {
   let token;
@@ -14,7 +15,7 @@ const protect = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (decoded.type === 'customer') {
-      const user = await User.findById(decoded.id).select('-password');
+      const user = await releaseExpiredBlock(await User.findById(decoded.id).select('-password'));
       if (!user) return res.status(401).json({ success: false, message: MESSAGES.auth.userNotFound });
       if (!user.isActive) return res.status(401).json({ success: false, message: MESSAGES.auth.accountDeactivated });
       req.user = user;
@@ -66,7 +67,7 @@ const protectCustomer = async (req, res, next) => {
     if (decoded.type !== 'customer') {
       return res.status(403).json({ success: false, message: MESSAGES.auth.customerLoginRequired });
     }
-    const user = await User.findById(decoded.id).select('-password');
+    const user = await releaseExpiredBlock(await User.findById(decoded.id).select('-password'));
     if (!user) return res.status(401).json({ success: false, message: MESSAGES.auth.userNotFound });
     if (!user.isActive) return res.status(401).json({ success: false, message: MESSAGES.auth.accountDeactivated });
     req.user = user;

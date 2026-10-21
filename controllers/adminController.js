@@ -5,6 +5,7 @@ const MESSAGES = require('../config/errorMessages.json');
 const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
 const formatMessage = require('../utils/formatMessage');
 const { APPLICATION_STATUS } = require('../config/constants');
+const { releaseExpiredBlock, releaseAllExpiredBlocks } = require('../utils/customerBlock');
 
 // Admin is a trusted, internal-only view, so this returns the full provider
 // document (unlike the public listMaids/getProviderById in providerController,
@@ -224,15 +225,23 @@ exports.deleteProvider = async (req, res, next) => {
 // API inventing a third status that nothing writes.
 // ---------------------------------------------------------------------
 
-const serializeCustomerForAdmin = (user, bookingCountsByUserId) => {
-  const { _id, password, __v, ...rest } = user.toObject();
-  return { id: _id, ...rest, bookingCount: bookingCountsByUserId.get(String(_id)) ?? 0 };
+// Notes and history only travel with the single-customer detail, not the list.
+const serializeCustomerForAdmin = (user, bookingCountsByUserId, { detail = false } = {}) => {
+  const { _id, password, __v, adminNotes = [], moderationLog = [], ...rest } = user.toObject();
+  return {
+    id: _id,
+    ...rest,
+    bookingCount: bookingCountsByUserId.get(String(_id)) ?? 0,
+    noteCount: adminNotes.length,
+    ...(detail && { adminNotes, moderationLog: [...moderationLog].reverse() }),
+  };
 };
 
 exports.listCustomers = async (req, res, next) => {
   try {
     const { status, q, page = 1, limit = 20 } = req.query;
     const query = {};
+    await releaseAllExpiredBlocks();
 
     if (status === 'active') query.isActive = true;
     else if (status === 'inactive' || status === 'suspended') query.isActive = false;
@@ -247,36 +256,187 @@ exports.listCustomers = async (req, res, next) => {
       User.find(query).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
       User.countDocuments(query),
       User.countDocuments({ isActive: true }),
-      Booking.aggregate([{ $group: { _id: '$user', count: { $sum: 1 } } }]),
+      Booking.aggregate([{ $group: { _id: '$user', count: { $sum: 1 }, lastBookingAt: { $max: '$createdAt' } } }]),
     ]);
     const bookingCountsByUserId = new Map(bookingCounts.map((row) => [String(row._id), row.count]));
+    const lastBookingByUserId = new Map(bookingCounts.map((row) => [String(row._id), row.lastBookingAt]));
     const totalCustomers = await User.countDocuments();
 
     res.json({
       success: true,
       count: users.length,
       total,
-      counts: { active: allActiveCount, inactive: totalCustomers - allActiveCount },
+      counts: { active: allActiveCount, inactive: totalCustomers - allActiveCount, total: totalCustomers },
       page: Number(page),
       pages: Math.ceil(total / Number(limit)),
-      data: users.map((u) => serializeCustomerForAdmin(u, bookingCountsByUserId)),
+      data: users.map((u) => ({ ...serializeCustomerForAdmin(u, bookingCountsByUserId), lastBookingAt: lastBookingByUserId.get(String(u._id)) ?? null })),
     });
   } catch (error) {
     next(error);
   }
 };
 
-const setCustomerActive = (isActive) => async (req, res, next) => {
+const text = (value, max = 300) => (typeof value === 'string' ? value.trim().slice(0, max) : '');
+const customerNotFound = (res) => res.status(404).json({ success: false, message: MESSAGES.auth.userNotFound });
+
+// Block: optional reason, optional end date (`until`, ISO). No end date = until an admin unblocks.
+exports.deactivateCustomer = async (req, res, next) => {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, { isActive }, { new: true });
-    if (!user) {
-      return res.status(404).json({ success: false, message: MESSAGES.auth.userNotFound });
+    const user = await User.findById(req.params.id);
+    if (!user) return customerNotFound(res);
+
+    const reason = text(req.body?.reason);
+    let until;
+    if (req.body?.until) {
+      until = new Date(req.body.until);
+      if (Number.isNaN(until.getTime()) || until <= new Date()) {
+        return res.status(400).json({ success: false, message: MESSAGES.admin.invalidBlockDate });
+      }
     }
+
+    user.isActive = false;
+    user.blockedAt = new Date();
+    user.blockReason = reason || undefined;
+    user.blockedUntil = until;
+    user.moderationLog.push({ action: 'blocked', reason: reason || undefined, until, at: new Date() });
+    await user.save();
     res.json({ success: true, data: serializeCustomerForAdmin(user, new Map()) });
   } catch (error) {
     next(error);
   }
 };
 
-exports.activateCustomer = setCustomerActive(true);
-exports.deactivateCustomer = setCustomerActive(false);
+exports.activateCustomer = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return customerNotFound(res);
+
+    user.isActive = true;
+    user.blockedAt = undefined;
+    user.blockReason = undefined;
+    user.blockedUntil = undefined;
+    user.moderationLog.push({ action: 'unblocked', at: new Date() });
+    await user.save();
+    res.json({ success: true, data: serializeCustomerForAdmin(user, new Map()) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Watch list: mark (or clear) an account for attention without blocking it.
+exports.flagCustomer = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return customerNotFound(res);
+
+    const flagged = Boolean(req.body?.flagged);
+    const reason = text(req.body?.reason);
+    user.flagged = flagged;
+    user.flagReason = flagged ? reason || undefined : undefined;
+    user.moderationLog.push({ action: flagged ? 'flagged' : 'unflagged', reason: flagged ? reason || undefined : undefined, at: new Date() });
+    await user.save();
+    res.json({ success: true, data: serializeCustomerForAdmin(user, new Map()) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.addCustomerNote = async (req, res, next) => {
+  try {
+    const note = text(req.body?.text, 1000);
+    if (!note) return res.status(400).json({ success: false, message: MESSAGES.admin.noteRequired });
+    const user = await User.findByIdAndUpdate(req.params.id, { $push: { adminNotes: { $each: [{ text: note, at: new Date() }], $position: 0 } } }, { new: true });
+    if (!user) return customerNotFound(res);
+    res.status(201).json({ success: true, data: user.adminNotes });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteCustomerNote = async (req, res, next) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.params.id, { $pull: { adminNotes: { _id: req.params.noteId } } }, { new: true });
+    if (!user) return customerNotFound(res);
+    res.json({ success: true, data: user.adminNotes });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Fix a customer's profile details (name, phone, city, address).
+exports.updateCustomer = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return customerNotFound(res);
+
+    const changed = [];
+    [['name', 100], ['phone', 30], ['emirate', 60], ['address', 300]].forEach(([field, max]) => {
+      if (req.body[field] !== undefined) {
+        const value = text(req.body[field], max);
+        if (value !== (user[field] || '')) changed.push(field);
+        user[field] = value;
+      }
+    });
+    if (changed.length) user.moderationLog.push({ action: 'edited', reason: `Changed ${changed.join(', ')}`, at: new Date() });
+    await user.save();
+    res.json({ success: true, data: serializeCustomerForAdmin(user, new Map()) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Permanent. Refused while the customer has bookings that are still going ahead.
+exports.deleteCustomer = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return customerNotFound(res);
+
+    const open = await Booking.countDocuments({ user: user._id, status: { $in: ['pending', 'confirmed', 'in_progress'] } });
+    if (open > 0) {
+      return res.status(409).json({
+        success: false,
+        message: formatMessage(MESSAGES.admin.customerHasOpenBookings, { count: open }),
+        openBookings: open,
+      });
+    }
+    await Booking.deleteMany({ user: user._id });
+    await user.deleteOne();
+    res.json({ success: true, data: { id: req.params.id } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// One customer with their booking history, for the admin "user details" panel.
+exports.getCustomer = async (req, res, next) => {
+  try {
+    const user = await releaseExpiredBlock(await User.findById(req.params.id));
+    if (!user) {
+      return res.status(404).json({ success: false, message: MESSAGES.auth.userNotFound });
+    }
+    const [byStatus, recent] = await Promise.all([
+      Booking.aggregate([{ $match: { user: user._id } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
+      Booking.find({ user: user._id }).sort({ scheduledDate: -1 }).limit(10).populate('maid', 'fullName city'),
+    ]);
+    const stats = Object.fromEntries(byStatus.map((row) => [row._id, row.count]));
+    const total = byStatus.reduce((sum, row) => sum + row.count, 0);
+
+    res.json({
+      success: true,
+      data: {
+        ...serializeCustomerForAdmin(user, new Map([[String(user._id), total]]), { detail: true }),
+        bookingStats: { total, ...stats },
+        recentBookings: recent.map((b) => ({
+          id: b._id,
+          status: b.status,
+          scheduledDate: b.scheduledDate,
+          providerName: b.maid?.fullName || null,
+          providerCity: b.maid?.city || null,
+          monthlySalary: b.monthlySalary,
+        })),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};

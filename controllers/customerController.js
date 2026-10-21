@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const generateToken = require('../utils/jwt');
 const MESSAGES = require('../config/errorMessages.json');
+const { releaseExpiredBlock } = require('../utils/customerBlock');
 
 exports.register = async (req, res, next) => {
   try {
@@ -41,13 +42,16 @@ exports.register = async (req, res, next) => {
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email }).select('+password');
+    const user = await releaseExpiredBlock(await User.findOne({ email }).select('+password'));
     if (!user) {
       return res.status(401).json({ success: false, message: MESSAGES.customer.invalidCredentials });
     }
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: MESSAGES.customer.invalidCredentials });
+    }
+    if (!user.isActive) {
+      return res.status(403).json({ success: false, message: MESSAGES.auth.accountDeactivated });
     }
     const token = generateToken(user._id, 'customer');
     res.json({
