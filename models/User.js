@@ -30,6 +30,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // Where the customer wants help (collected after sign-up on the website/app).
+    city: { type: String, trim: true, maxlength: 80 },
+    state: { type: String, trim: true, maxlength: 80 },
+    // Service keys they're looking for (e.g. "cat-cook"), and how they need it.
+    lookingFor: { type: [String], default: [] },
+    requirementType: { type: String, trim: true, maxlength: 40 },
     planName: {
       type: String,
       trim: true,

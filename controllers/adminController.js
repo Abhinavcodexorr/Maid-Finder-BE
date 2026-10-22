@@ -1,6 +1,7 @@
 const Provider = require('../models/Provider');
 const User = require('../models/User');
 const Booking = require('../models/Booking');
+const Favourite = require('../models/Favourite');
 const MESSAGES = require('../config/errorMessages.json');
 const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
 const formatMessage = require('../utils/formatMessage');
@@ -561,6 +562,7 @@ exports.getCustomer = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({ success: false, message: MESSAGES.auth.userNotFound });
     }
+    const favouriteCount = await Favourite.countDocuments({ user: user._id });
     const [byStatus, recent] = await Promise.all([
       Booking.aggregate([{ $match: { user: user._id } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
       Booking.find({ user: user._id }).sort({ scheduledDate: -1 }).limit(10).populate('maid', 'fullName city'),
@@ -582,6 +584,7 @@ exports.getCustomer = async (req, res, next) => {
       success: true,
       data: {
         ...serializeCustomerForAdmin(user, new Map([[String(user._id), total]]), { detail: true }),
+        favouriteCount,
         currentPlan: chosenSub,
         plan: chosenSub?.plan || chosenSub || (planName ? { name: planName, planName } : null),
         planName,

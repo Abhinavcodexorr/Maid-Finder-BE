@@ -2,6 +2,7 @@ const User = require('../models/User');
 const generateToken = require('../utils/jwt');
 const MESSAGES = require('../config/errorMessages.json');
 const { releaseExpiredBlock } = require('../utils/customerBlock');
+const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
 
 exports.register = async (req, res, next) => {
   try {
@@ -66,6 +67,24 @@ exports.login = async (req, res, next) => {
         address: user.address,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const PROFILE_TEXT_FIELDS = [['name', 100], ['phone', 30], ['emirate', 60], ['address', 300], ['city', 80], ['state', 80], ['requirementType', 40]];
+
+// A customer fills in or fixes their own profile (the sign-up location/interests step).
+exports.updateMe = async (req, res, next) => {
+  try {
+    const user = req.user;
+    PROFILE_TEXT_FIELDS.forEach(([field, max]) => {
+      if (typeof req.body[field] === 'string') user[field] = req.body[field].trim().slice(0, max);
+    });
+    if (req.body.lookingFor !== undefined) user.lookingFor = normalizeCategoryIds(req.body.lookingFor) ?? [];
+    await user.save();
+    const { password, __v, ...safe } = user.toObject();
+    res.json({ success: true, user: { id: user._id, ...safe } });
   } catch (error) {
     next(error);
   }
