@@ -166,6 +166,22 @@ exports.listProviders = async (req, res, next) => {
   }
 };
 
+// One provider by id (e.g. opening a new registration from a notification).
+exports.getProvider = async (req, res, next) => {
+  try {
+    const provider = await Provider.findById(req.params.id);
+    if (!provider) {
+      return res.status(404).json({ success: false, message: MESSAGES.admin.providerNotFound });
+    }
+    res.json({ success: true, data: serializeProviderForAdmin(provider) });
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(404).json({ success: false, message: MESSAGES.admin.providerNotFound });
+    }
+    next(error);
+  }
+};
+
 // Cheap snapshot for the admin panel's 3-second notification poll: per-stage
 // totals plus the most recent registrations, so the panel can spot a provider
 // it hasn't seen yet without downloading the full list every time.

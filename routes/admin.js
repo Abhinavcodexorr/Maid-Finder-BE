@@ -9,6 +9,7 @@ const adminAuth = require('../middleware/adminAuth');
 const {
   listProviders,
   providersSummary,
+  getProvider,
   verifyProvider,
   approveProvider,
   rejectProvider,
@@ -52,6 +53,7 @@ router.use(adminAuth);
 router.get('/dashboard', getAdminDashboard);
 router.get('/providers/summary', providersSummary);
 router.get('/providers', listProviders);
+router.get('/providers/:id', getProvider);
 router.patch('/providers/:id/verify', verifyProvider);
 router.patch('/providers/:id/approve', approveProvider);
 router.patch('/providers/:id/reject', rejectProvider);
