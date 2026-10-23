@@ -376,6 +376,18 @@ exports.login = async (req, res, next) => {
   }
 };
 
+// Self-service account deletion — the provider deleting their own account,
+// not the admin's deleteProvider. No confirmation/reason body is required;
+// the auth token alone (protectProvider) is the proof this is their account.
+exports.deleteMyAccount = async (req, res, next) => {
+  try {
+    await Provider.findByIdAndDelete(req.provider._id);
+    res.json({ success: true, message: MESSAGES.provider.accountDeleted });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Full self-view for the logged-in provider's own "My Account" / "My
 // Profile" screen — every field except password and the internal
 // mobileNumberDigits index (unlike serializeProvider used for

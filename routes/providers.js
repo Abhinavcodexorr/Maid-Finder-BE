@@ -11,6 +11,7 @@ const {
   updateProvider,
   updateMyProfile,
   completeProfile,
+  deleteMyAccount,
 } = require('../controllers/providerController');
 const { protectProvider } = require('../middleware/auth');
 const MESSAGES = require('../config/errorMessages.json');
@@ -124,6 +125,7 @@ router.post('/verify-otp', verifyOtp);
 router.get('/list', listProviders);
 router.get('/me', protectProvider, getMe);
 router.put('/me', protectProvider, updateMyProfile);
+router.delete('/me', protectProvider, deleteMyAccount);
 
 // Profile completion: submits General info + Work preferences + Last job + KYC.
 // Supports both /me/complete-profile and /complete-register aliases (both POST and PUT).

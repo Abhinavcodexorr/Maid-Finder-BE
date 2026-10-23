@@ -60,7 +60,8 @@
     "otpResendTooSoon": "Please wait {seconds} seconds before requesting another OTP",
     "otpNotRequested": "No OTP was requested for this number, or it has expired. Please request a new one.",
     "otpRequired": "OTP is required",
-    "otpInvalid": "Invalid OTP"
+    "otpInvalid": "Invalid OTP",
+    "accountDeleted": "Your account has been deleted"
   },
   "customer": {
     "emailAlreadyRegistered": "Email already registered",
