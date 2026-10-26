@@ -22,6 +22,7 @@ const serializeProvider = (provider) => ({
   area: provider.area,
   city: provider.city,
   state: provider.state,
+  pincode: provider.pincode,
   countryCode: provider.countryCode,
   mobileNumber: provider.mobileNumber,
   whatsappNumber: provider.whatsappNumber,
@@ -182,6 +183,7 @@ exports.register = async (req, res, next) => {
       area,
       city,
       state,
+      pincode,
       countryCode,
       mobileNumber,
       whatsappNumber,
@@ -296,6 +298,7 @@ exports.register = async (req, res, next) => {
       area,
       city,
       state,
+      pincode,
       countryCode,
       mobileNumber,
       whatsappNumber,
@@ -421,7 +424,7 @@ exports.getProviderById = async (req, res, next) => {
 };
 
 const ALLOWED_PROFILE_FIELDS = [
-  'fullName', 'firstName', 'lastName', 'gender', 'nationality', 'categoryIds', 'subCategoryIds', 'area', 'city', 'state',
+  'fullName', 'firstName', 'lastName', 'gender', 'nationality', 'categoryIds', 'subCategoryIds', 'area', 'city', 'state', 'pincode',
   'countryCode', 'mobileNumber', 'whatsappNumber', 'emirate', 'experienceYears',
   'monthlySalary', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
   'age', 'dateOfBirth', 'panNumber', 'panCardUrl', 'aadhaarNumber', 'aadhaarFrontUrl', 'aadhaarBackUrl',
@@ -577,6 +580,8 @@ exports.completeProfile = async (req, res, next) => {
     if (aadhaarNumber !== undefined) provider.aadhaarNumber = aadhaarNumber;
     const state = getVal(generalInfo, 'state');
     if (state !== undefined) provider.state = state;
+    const pincode = getVal(generalInfo, 'pincode');
+    if (pincode !== undefined) provider.pincode = pincode;
     const city = getVal(generalInfo, 'city');
     if (city !== undefined) provider.city = city;
     const area = getVal(generalInfo, 'area');

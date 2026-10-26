@@ -68,6 +68,11 @@ const providerSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // Work-area pincode, stored as typed (no format validation on purpose).
+    pincode: {
+      type: String,
+      trim: true,
+    },
     // Local number only (no country code) — e.g. "9876543210", not
     // "+919876543210". Kept separate from countryCode so the UI can show
     // them as two fields ("+91" | "98765 XXXXX") without re-parsing.
