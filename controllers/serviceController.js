@@ -84,12 +84,13 @@ exports.listPublicServices = async (req, res, next) => {
     res.json({
       success: true,
       count: services.length,
-      data: services.map(({ _id, key, name, description, icon, subCategories }) => ({
+      data: services.map(({ _id, key, name, description, icon, imageUrl, subCategories }) => ({
         id: _id,
         key,
         name,
         description,
         icon,
+        imageUrl,
         subCategories: (subCategories || []).filter((s) => s.isActive).map(({ key: subKey, name: subName }) => ({ key: subKey, name: subName })),
       })),
     });
@@ -127,7 +128,7 @@ exports.listServices = async (req, res, next) => {
 
 exports.createService = async (req, res, next) => {
   try {
-    const { name, description, icon, isActive } = req.body;
+    const { name, description, icon, imageUrl, isActive } = req.body;
     if (typeof name !== 'string' || !name.trim()) {
       return res.status(400).json({ success: false, message: MESSAGES.service.nameRequired });
     }
@@ -149,6 +150,7 @@ exports.createService = async (req, res, next) => {
       ...(subCategories && { subCategories }),
       ...(description !== undefined && { description }),
       ...(icon !== undefined && { icon }),
+      ...(imageUrl !== undefined && { imageUrl }),
       ...(isActive !== undefined && { isActive: Boolean(isActive) }),
     });
     res.status(201).json({ success: true, data: serialize(service, await providerCountsByKey(), await providerCountsBySubKey()) });
@@ -168,7 +170,7 @@ exports.updateService = async (req, res, next) => {
     const service = await Service.findById(req.params.id);
     if (!service) return notFound(res);
 
-    ['name', 'description', 'icon'].forEach((field) => {
+    ['name', 'description', 'icon', 'imageUrl'].forEach((field) => {
       if (req.body[field] !== undefined) service[field] = req.body[field];
     });
     if (req.body.isActive !== undefined) service.isActive = Boolean(req.body.isActive);

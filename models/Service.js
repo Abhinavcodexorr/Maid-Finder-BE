@@ -32,6 +32,12 @@ const serviceSchema = new mongoose.Schema(
       enum: { values: ['', ...SERVICE_ICONS], message: 'Unknown icon: {VALUE}' },
       default: '',
     },
+    // Photo the client uploads for the service (via POST /api/v1/upload); apps show it instead of the icon.
+    imageUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     isActive: {
       type: Boolean,
       default: true,
