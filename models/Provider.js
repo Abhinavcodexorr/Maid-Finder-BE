@@ -182,6 +182,12 @@ const providerSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // How far (km) from their city the provider is willing to travel for work. Empty = not set.
+    serviceRadiusKm: {
+      type: Number,
+      min: [1, 'Service radius must be at least 1 km'],
+      max: [500, 'Service radius cannot exceed 500 km'],
+    },
     isActive: {
       type: Boolean,
       default: true,

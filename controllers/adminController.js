@@ -282,10 +282,12 @@ const EDITABLE_FIELDS = [
   'nationality',
   'area',
   'city',
+  'state',
   'mobileNumber',
   'whatsappNumber',
   'email',
   'experienceYears',
+  'serviceRadiusKm',
 ];
 
 exports.updateProvider = async (req, res, next) => {

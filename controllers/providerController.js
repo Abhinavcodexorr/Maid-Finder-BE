@@ -19,6 +19,7 @@ const serializeProvider = (provider) => ({
   nationality: provider.nationality,
   categoryIds: provider.categoryIds,
   subCategoryIds: provider.subCategoryIds,
+  serviceRadiusKm: provider.serviceRadiusKm,
   area: provider.area,
   city: provider.city,
   state: provider.state,
@@ -424,7 +425,7 @@ exports.getProviderById = async (req, res, next) => {
 };
 
 const ALLOWED_PROFILE_FIELDS = [
-  'fullName', 'firstName', 'lastName', 'gender', 'nationality', 'categoryIds', 'subCategoryIds', 'area', 'city', 'state', 'pincode',
+  'fullName', 'firstName', 'lastName', 'gender', 'nationality', 'categoryIds', 'subCategoryIds', 'serviceRadiusKm', 'area', 'city', 'state', 'pincode',
   'countryCode', 'mobileNumber', 'whatsappNumber', 'emirate', 'experienceYears',
   'monthlySalary', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
   'age', 'dateOfBirth', 'panNumber', 'panCardUrl', 'aadhaarNumber', 'aadhaarFrontUrl', 'aadhaarBackUrl',
