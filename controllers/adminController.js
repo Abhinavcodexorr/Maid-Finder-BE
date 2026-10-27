@@ -281,6 +281,7 @@ const EDITABLE_FIELDS = [
   'gender',
   'nationality',
   'area',
+  'pincode',
   'city',
   'state',
   'mobileNumber',
