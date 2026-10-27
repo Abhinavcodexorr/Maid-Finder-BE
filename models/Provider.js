@@ -182,6 +182,13 @@ const providerSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // Where the provider works (GeoJSON Point, [longitude, latitude]), set from
+    // their pincode/city at registration. Drives "near me" search and radius
+    // filtering; providers without it are matched by city/state instead.
+    location: {
+      type: { type: String, enum: ['Point'] },
+      coordinates: { type: [Number], default: undefined },
+    },
     // How far (km) from their city the provider is willing to travel for work. Empty = not set.
     serviceRadiusKm: {
       type: Number,
@@ -343,6 +350,7 @@ providerSchema.index({ monthlySalary: 1 });
 providerSchema.index({ categoryIds: 1 });
 providerSchema.index({ area: 1 });
 providerSchema.index({ applicationStatus: 1 });
+providerSchema.index({ location: '2dsphere' });
 
 // Collection name is pinned to the existing 'maids' collection so renaming
 // the model doesn't orphan any provider already registered through the

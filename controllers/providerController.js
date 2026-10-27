@@ -583,6 +583,11 @@ exports.completeProfile = async (req, res, next) => {
     if (state !== undefined) provider.state = state;
     const pincode = getVal(generalInfo, 'pincode');
     if (pincode !== undefined) provider.pincode = pincode;
+    const latitude = Number(getVal(generalInfo, 'latitude'));
+    const longitude = Number(getVal(generalInfo, 'longitude'));
+    if (Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) {
+      provider.location = { type: 'Point', coordinates: [longitude, latitude] };
+    }
     const city = getVal(generalInfo, 'city');
     if (city !== undefined) provider.city = city;
     const area = getVal(generalInfo, 'area');
