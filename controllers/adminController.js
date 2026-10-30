@@ -289,7 +289,18 @@ const EDITABLE_FIELDS = [
   'email',
   'experienceYears',
   'serviceRadiusKm',
+  'monthlySalary',
+  'duration',
+  'jobDescription',
+  'education',
 ];
+
+const LAST_JOB_EDITABLE = ['jobTitle', 'duration', 'workingCity', 'familySize', 'employerNationality', 'salary', 'reasonForLeaving'];
+
+const cleanList = (value) =>
+  (Array.isArray(value) ? value : String(value ?? '').split(','))
+    .map((v) => String(v).trim())
+    .filter(Boolean);
 
 exports.updateProvider = async (req, res, next) => {
   try {
@@ -306,6 +317,15 @@ exports.updateProvider = async (req, res, next) => {
     }
     for (const field of EDITABLE_FIELDS) {
       if (req.body[field] !== undefined) provider[field] = req.body[field];
+    }
+    // Languages and skills arrive as lists; the previous job is merged field by field.
+    ['languages', 'skills'].forEach((field) => {
+      if (req.body[field] !== undefined) provider[field] = cleanList(req.body[field]);
+    });
+    if (req.body.lastWorkingExperience && typeof req.body.lastWorkingExperience === 'object') {
+      LAST_JOB_EDITABLE.forEach((field) => {
+        if (req.body.lastWorkingExperience[field] !== undefined) provider.lastWorkingExperience[field] = req.body.lastWorkingExperience[field];
+      });
     }
     if (Array.isArray(req.body.kycDocuments)) {
       provider.kycDocuments = req.body.kycDocuments.map((doc) => ({
