@@ -13,7 +13,7 @@ const {
   completeProfile,
   deleteMyAccount,
 } = require('../controllers/providerController');
-const { protectProvider } = require('../middleware/auth');
+const { protectProvider, optionalProtect } = require('../middleware/auth');
 const MESSAGES = require('../config/errorMessages.json');
 const formatMessage = require('../utils/formatMessage');
 const { IMAGE_MIMETYPES, ID_DOCUMENT_MIMETYPES, isVideoMimetype } = require('../config/mimeTypes');
@@ -122,7 +122,7 @@ const handleCompleteProfileUpload = (req, res, next) => {
 router.post('/send-otp', sendOtp);
 router.post('/verify-otp', verifyOtp);
 
-router.get('/list', listProviders);
+router.get('/list', optionalProtect, listProviders);
 router.get('/me', protectProvider, getMe);
 router.put('/me', protectProvider, updateMyProfile);
 router.delete('/me', protectProvider, deleteMyAccount);
@@ -178,7 +178,7 @@ router.put(
   completeProfile
 );
 
-router.get('/:id', getProviderById);
+router.get('/:id', optionalProtect, getProviderById);
 router.post(
   '/register',
   registerUpload.fields([

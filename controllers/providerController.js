@@ -1,4 +1,5 @@
 const Provider = require('../models/Provider');
+const { viewerHasActivePlan, sanitizeProvider } = require('../utils/providerPrivacy');
 const OtpRequest = require('../models/OtpRequest');
 const generateToken = require('../utils/jwt');
 const { uploadBufferToS3 } = require('../utils/s3Upload');
@@ -418,7 +419,10 @@ exports.getProviderById = async (req, res, next) => {
     if (!provider) {
       return res.status(404).json({ success: false, message: MESSAGES.provider.notFound });
     }
-    res.json({ success: true, data: provider });
+    // Public endpoint: identity documents never leave the server, and contact numbers only go to
+    // a logged-in customer with an active subscription.
+    const isMember = await viewerHasActivePlan(req);
+    res.json({ success: true, data: sanitizeProvider(provider, isMember) });
   } catch (error) {
     next(error);
   }
@@ -873,13 +877,14 @@ exports.listProviders = async (req, res, next) => {
       .sort({ createdAt: -1 });
 
     const total = await Provider.countDocuments(query);
+    const isMember = await viewerHasActivePlan(req);
     res.json({
       success: true,
       count: providers.length,
       total,
       page: Number(page),
       pages: Math.ceil(total / Number(limit)),
-      data: providers,
+      data: providers.map((p) => sanitizeProvider(p, isMember)),
     });
   } catch (error) {
     next(error);
