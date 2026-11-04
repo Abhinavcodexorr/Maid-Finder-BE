@@ -13,7 +13,8 @@ const {
   completeProfile,
   deleteMyAccount,
 } = require('../controllers/providerController');
-const { protectProvider, optionalProtect } = require('../middleware/auth');
+const { protectProvider, optionalProtect, protectCustomer } = require('../middleware/auth');
+const { listReviews, createReview } = require('../controllers/reviewController');
 const MESSAGES = require('../config/errorMessages.json');
 const formatMessage = require('../utils/formatMessage');
 const { IMAGE_MIMETYPES, ID_DOCUMENT_MIMETYPES, isVideoMimetype } = require('../config/mimeTypes');
@@ -178,6 +179,8 @@ router.put(
   completeProfile
 );
 
+router.get('/:id/reviews', optionalProtect, listReviews);
+router.post('/:id/reviews', protectCustomer, createReview);
 router.get('/:id', optionalProtect, getProviderById);
 router.post(
   '/register',
