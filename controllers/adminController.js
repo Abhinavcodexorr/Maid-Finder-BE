@@ -4,6 +4,7 @@ const Booking = require('../models/Booking');
 const Favourite = require('../models/Favourite');
 const MESSAGES = require('../config/errorMessages.json');
 const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
+const normalizeStay = require('../utils/normalizeStay');
 const formatMessage = require('../utils/formatMessage');
 const { APPLICATION_STATUS } = require('../config/constants');
 const { releaseExpiredBlock, releaseAllExpiredBlocks } = require('../utils/customerBlock');
@@ -88,6 +89,8 @@ exports.listProviders = async (req, res, next) => {
       if (categoryArr.length) query.categoryIds = { $in: categoryArr };
     }
     if (city && city.trim()) query.city = city.trim();
+    const stay = normalizeStay(req.query.stay);
+    if (stay.length) query.stayPreference = { $in: stay };
     if (gender === 'Male' || gender === 'Female') query.gender = gender;
     if (experience) {
       const ranges = experience.split(',').map((key) => EXPERIENCE_BUCKETS[key.trim()]).filter(Boolean);
@@ -319,6 +322,7 @@ exports.updateProvider = async (req, res, next) => {
       if (req.body[field] !== undefined) provider[field] = req.body[field];
     }
     // Languages and skills arrive as lists; the previous job is merged field by field.
+    if (req.body.stayPreference !== undefined) provider.stayPreference = normalizeStay(req.body.stayPreference);
     ['languages', 'skills'].forEach((field) => {
       if (req.body[field] !== undefined) provider[field] = cleanList(req.body[field]);
     });

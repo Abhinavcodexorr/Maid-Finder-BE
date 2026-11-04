@@ -6,6 +6,8 @@ module.exports = {
     'Nanny-child Care', 'New Born', 'Private Tutor', 'Pet Care - Maid', 'Elderly Care',
     'Special Needs Care', 'Private Nurse', 'Driving Experience',
   ],
+  // Whether a provider can live at the employer's home (live_in), come in daily (live_out), or both.
+  STAY_OPTIONS: ['live_in', 'live_out'],
   DURATION_OPTIONS: ['Part-time', 'Full-time', 'Flexible'],
   // Review pipeline for provider applications, in order: a new application is
   // 'pending', an admin moves it to 'verification', then approves or rejects it.

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const { MARITAL_STATUS, APPLICATION_STATUS } = require('../config/constants');
+const { MARITAL_STATUS, APPLICATION_STATUS, STAY_OPTIONS } = require('../config/constants');
 
 const providerSchema = new mongoose.Schema(
   {
@@ -216,6 +216,12 @@ const providerSchema = new mongoose.Schema(
     preferredJob: {
       type: String,
       trim: true,
+    },
+    // Live in, live out, or both.
+    stayPreference: {
+      type: [String],
+      enum: STAY_OPTIONS,
+      default: [],
     },
     duration: {
       type: String,

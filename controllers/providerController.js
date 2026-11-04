@@ -7,6 +7,7 @@ const { makeThumbnail, makeWebVideo, stageBuffer } = require('../utils/videoProc
 const MESSAGES = require('../config/errorMessages.json');
 const formatMessage = require('../utils/formatMessage');
 const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
+const normalizeStay = require('../utils/normalizeStay');
 const { generateOtp, deliverOtp } = require('../utils/otp');
 const { OTP_EXPIRY_MS, OTP_RESEND_COOLDOWN_MS } = require('../config/constants');
 
@@ -20,6 +21,7 @@ const serializeProvider = (provider) => ({
   nationality: provider.nationality,
   categoryIds: provider.categoryIds,
   subCategoryIds: provider.subCategoryIds,
+  stayPreference: provider.stayPreference,
   serviceRadiusKm: provider.serviceRadiusKm,
   area: provider.area,
   city: provider.city,
@@ -429,7 +431,7 @@ exports.getProviderById = async (req, res, next) => {
 };
 
 const ALLOWED_PROFILE_FIELDS = [
-  'fullName', 'firstName', 'lastName', 'gender', 'nationality', 'categoryIds', 'subCategoryIds', 'serviceRadiusKm', 'area', 'city', 'state', 'pincode',
+  'fullName', 'firstName', 'lastName', 'gender', 'nationality', 'categoryIds', 'subCategoryIds', 'serviceRadiusKm', 'stayPreference', 'area', 'city', 'state', 'pincode',
   'countryCode', 'mobileNumber', 'whatsappNumber', 'emirate', 'experienceYears',
   'monthlySalary', 'skills', 'imageUrl', 'phone', 'whatsapp', 'bio',
   'age', 'dateOfBirth', 'panNumber', 'panCardUrl', 'aadhaarNumber', 'aadhaarFrontUrl', 'aadhaarBackUrl',
@@ -448,6 +450,7 @@ const applyAllowedFields = (provider, body) => {
   const resolvedCategoryIds = body.categoryIds ?? body.categoryId;
   if (resolvedCategoryIds !== undefined) provider.categoryIds = normalizeCategoryIds(resolvedCategoryIds);
   if (body.subCategoryIds !== undefined) provider.subCategoryIds = normalizeCategoryIds(body.subCategoryIds) ?? [];
+  if (body.stayPreference !== undefined) provider.stayPreference = normalizeStay(body.stayPreference);
   if (body.monthlySalary === undefined && body.monthlySalaryAed !== undefined) {
     body.monthlySalary = body.monthlySalaryAed;
   }
@@ -467,7 +470,7 @@ const applyAllowedFields = (provider, body) => {
     body.introVideoUrl = typeof body.video === 'string' ? body.video : body.videoUrl || body.introVideo;
   }
   ALLOWED_PROFILE_FIELDS.forEach((key) => {
-    if (key === 'categoryIds' || key === 'subCategoryIds' || body[key] === undefined) return;
+    if (key === 'categoryIds' || key === 'subCategoryIds' || key === 'stayPreference' || body[key] === undefined) return;
     provider[key] = body[key];
   });
 };
@@ -621,6 +624,10 @@ exports.completeProfile = async (req, res, next) => {
       workPreferences.subCategoryIds ?? req.body.subCategoryIds;
     if (resolvedSubCategoryIds !== undefined) {
       provider.subCategoryIds = normalizeCategoryIds(resolvedSubCategoryIds) ?? [];
+    }
+    const resolvedStay = workPreferences.stayPreference ?? req.body.stayPreference;
+    if (resolvedStay !== undefined) {
+      provider.stayPreference = normalizeStay(resolvedStay);
     }
     const resolvedMonthlySalary =
       workPreferences.monthlySalary ??
