@@ -290,6 +290,8 @@ const EDITABLE_FIELDS = [
   'mobileNumber',
   'whatsappNumber',
   'email',
+  'maritalStatus',
+  'religion',
   'experienceYears',
   'serviceRadiusKm',
   'monthlySalary',
@@ -321,6 +323,12 @@ exports.updateProvider = async (req, res, next) => {
     for (const field of EDITABLE_FIELDS) {
       if (req.body[field] !== undefined) provider[field] = req.body[field];
     }
+    // Date of birth drives age (the model recomputes it); a bare age is accepted when no date is given.
+    if (req.body.dateOfBirth !== undefined) {
+      provider.dateOfBirth = req.body.dateOfBirth || undefined;
+      if (!req.body.dateOfBirth && req.body.age === undefined) provider.age = undefined;
+    }
+    if (req.body.age !== undefined && !req.body.dateOfBirth) provider.age = req.body.age === null || req.body.age === '' ? undefined : Number(req.body.age);
     // Languages and skills arrive as lists; the previous job is merged field by field.
     if (req.body.stayPreference !== undefined) provider.stayPreference = normalizeStay(req.body.stayPreference);
     ['languages', 'skills'].forEach((field) => {
