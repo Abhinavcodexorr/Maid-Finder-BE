@@ -5,6 +5,7 @@ const uploadRoutes = require('./upload');
 const adminRoutes = require('./admin');
 const serviceRoutes = require('./services');
 const planRoutes = require('./plans');
+const countryRoutes = require('./countries');
 const { logout } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const MESSAGES = require('../config/errorMessages.json');
@@ -23,6 +24,7 @@ router.use('/customer', userRoutes);
 router.use('/customers', userRoutes);
 router.use('/services', serviceRoutes);
 router.use('/plans', planRoutes);
+router.use('/countries', countryRoutes);
 router.use('/admin', adminRoutes);
 
 module.exports = router;

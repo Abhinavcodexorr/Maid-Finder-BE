@@ -48,7 +48,30 @@ const {
 
 const router = express.Router();
 
+const adminCountry = require('../middleware/adminCountry');
+const {
+  listCountries,
+  verifyAdminLogin,
+  listAdmins,
+  createAdmin,
+  updateAdmin,
+  deleteAdmin,
+  changeAdminPassword,
+} = require('../controllers/adminUserController');
+
 router.use(adminAuth);
+
+// Not country-specific: who the admins are, and which countries exist.
+router.get('/countries', listCountries);
+router.post('/auth/login', verifyAdminLogin);
+router.get('/admins', listAdmins);
+router.post('/admins', createAdmin);
+router.patch('/admins/:id', updateAdmin);
+router.delete('/admins/:id', deleteAdmin);
+router.post('/admins/:id/change-password', changeAdminPassword);
+
+// Everything below works inside the country the admin selected (x-admin-country).
+router.use(adminCountry);
 
 router.get('/dashboard', getAdminDashboard);
 router.get('/providers/summary', providersSummary);

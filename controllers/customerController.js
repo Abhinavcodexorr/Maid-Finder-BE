@@ -3,6 +3,7 @@ const generateToken = require('../utils/jwt');
 const MESSAGES = require('../config/errorMessages.json');
 const { releaseExpiredBlock } = require('../utils/customerBlock');
 const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
+const publicCountry = require('../utils/publicCountry');
 
 exports.register = async (req, res, next) => {
   try {
@@ -14,6 +15,7 @@ exports.register = async (req, res, next) => {
     }
 
     const user = await User.create({
+      country: publicCountry(req),
       email,
       password,
       name,

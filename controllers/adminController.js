@@ -73,7 +73,7 @@ exports.listProviders = async (req, res, next) => {
     const { status, categoryId, city, gender, experience, applied, sort, q, tz } = req.query;
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 20));
-    const query = {};
+    const query = { country: req.country };
 
     if (status && status !== 'all') {
       if (!APPLICATION_STATUS.includes(status)) {
@@ -119,13 +119,13 @@ exports.listProviders = async (req, res, next) => {
 
     const skip = (page - 1) * limit;
     // Facets describe the whole stage (not the current filters) so the panel can list real options with counts.
-    const facetMatch = query.applicationStatus ? { applicationStatus: query.applicationStatus } : {};
+    const facetMatch = query.applicationStatus ? { country: req.country, applicationStatus: query.applicationStatus } : { country: req.country };
     const [providers, total, grouped, facets] = await Promise.all([
       Provider.find(query).sort(PROVIDER_SORTS[sort] || PROVIDER_SORTS.newest).skip(skip).limit(limit),
       Provider.countDocuments(query),
       // Per-stage totals across all providers, regardless of the filters
       // above, so stage badges stay accurate when the list is paginated.
-      Provider.aggregate([{ $group: { _id: '$applicationStatus', count: { $sum: 1 } } }]),
+      Provider.aggregate([{ $match: { country: req.country } }, { $group: { _id: '$applicationStatus', count: { $sum: 1 } } }]),
       Provider.aggregate([
         { $match: facetMatch },
         {
@@ -173,7 +173,7 @@ exports.listProviders = async (req, res, next) => {
 // One provider by id (e.g. opening a new registration from a notification).
 exports.getProvider = async (req, res, next) => {
   try {
-    const provider = await Provider.findById(req.params.id);
+    const provider = await Provider.findOne({ _id: req.params.id, country: req.country });
     if (!provider) {
       return res.status(404).json({ success: false, message: MESSAGES.admin.providerNotFound });
     }
@@ -192,8 +192,8 @@ exports.getProvider = async (req, res, next) => {
 exports.providersSummary = async (req, res, next) => {
   try {
     const [grouped, latest] = await Promise.all([
-      Provider.aggregate([{ $group: { _id: '$applicationStatus', count: { $sum: 1 } } }]),
-      Provider.find()
+      Provider.aggregate([{ $match: { country: req.country } }, { $group: { _id: '$applicationStatus', count: { $sum: 1 } } }]),
+      Provider.find({ country: req.country })
         .sort({ createdAt: -1 })
         .limit(10)
         .select('fullName city state imageUrl applicationStatus createdAt'),
@@ -228,13 +228,13 @@ exports.providersSummary = async (req, res, next) => {
 const transition = async (req, res, next, { from, to, update = {}, conflictMessage }) => {
   try {
     const provider = await Provider.findOneAndUpdate(
-      { _id: req.params.id, applicationStatus: from },
+      { _id: req.params.id, country: req.country, applicationStatus: from },
       { $set: { applicationStatus: to, ...update.set }, ...(update.unset && { $unset: update.unset }) },
       { new: true, runValidators: true }
     );
     if (provider) return res.json({ success: true, data: serializeProviderForAdmin(provider) });
 
-    const existing = await Provider.findById(req.params.id).select('applicationStatus');
+    const existing = await Provider.findOne({ _id: req.params.id, country: req.country }).select('applicationStatus');
     if (!existing) {
       return res.status(404).json({ success: false, message: MESSAGES.admin.providerNotFound });
     }
@@ -307,7 +307,7 @@ const cleanList = (value) =>
 
 exports.updateProvider = async (req, res, next) => {
   try {
-    const provider = await Provider.findById(req.params.id);
+    const provider = await Provider.findOne({ _id: req.params.id, country: req.country });
     if (!provider) {
       return res.status(404).json({ success: false, message: MESSAGES.admin.providerNotFound });
     }
@@ -348,7 +348,7 @@ exports.updateProvider = async (req, res, next) => {
 
 exports.deleteProvider = async (req, res, next) => {
   try {
-    const provider = await Provider.findByIdAndDelete(req.params.id);
+    const provider = await Provider.findOneAndDelete({ _id: req.params.id, country: req.country });
     if (!provider) {
       return res.status(404).json({ success: false, message: MESSAGES.admin.providerNotFound });
     }
@@ -381,7 +381,7 @@ const serializeCustomerForAdmin = (user, bookingCountsByUserId, { detail = false
 exports.listCustomers = async (req, res, next) => {
   try {
     const { status, q, plan, planId, page = 1, limit = 20 } = req.query;
-    const query = {};
+    const query = { country: req.country };
     await releaseAllExpiredBlocks();
 
     if (status === 'active') query.isActive = true;
@@ -408,12 +408,12 @@ exports.listCustomers = async (req, res, next) => {
     const [users, total, allActiveCount, bookingCounts] = await Promise.all([
       User.find(query).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
       User.countDocuments(query),
-      User.countDocuments({ isActive: true }),
+      User.countDocuments({ country: req.country, isActive: true }),
       Booking.aggregate([{ $group: { _id: '$user', count: { $sum: 1 }, lastBookingAt: { $max: '$createdAt' } } }]),
     ]);
     const bookingCountsByUserId = new Map(bookingCounts.map((row) => [String(row._id), row.count]));
     const lastBookingByUserId = new Map(bookingCounts.map((row) => [String(row._id), row.lastBookingAt]));
-    const totalCustomers = await User.countDocuments();
+    const totalCustomers = await User.countDocuments({ country: req.country });
     const plans = await summariesFor(users.map((u) => u._id));
 
     res.json({
@@ -457,7 +457,7 @@ const customerNotFound = (res) => res.status(404).json({ success: false, message
 // Block: optional reason, optional end date (`until`, ISO). No end date = until an admin unblocks.
 exports.deactivateCustomer = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findOne({ _id: req.params.id, country: req.country });
     if (!user) return customerNotFound(res);
 
     const reason = text(req.body?.reason);
@@ -483,7 +483,7 @@ exports.deactivateCustomer = async (req, res, next) => {
 
 exports.activateCustomer = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findOne({ _id: req.params.id, country: req.country });
     if (!user) return customerNotFound(res);
 
     user.isActive = true;
@@ -501,7 +501,7 @@ exports.activateCustomer = async (req, res, next) => {
 // Watch list: mark (or clear) an account for attention without blocking it.
 exports.flagCustomer = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findOne({ _id: req.params.id, country: req.country });
     if (!user) return customerNotFound(res);
 
     const flagged = Boolean(req.body?.flagged);
@@ -520,7 +520,7 @@ exports.addCustomerNote = async (req, res, next) => {
   try {
     const note = text(req.body?.text, 1000);
     if (!note) return res.status(400).json({ success: false, message: MESSAGES.admin.noteRequired });
-    const user = await User.findByIdAndUpdate(req.params.id, { $push: { adminNotes: { $each: [{ text: note, at: new Date() }], $position: 0 } } }, { new: true });
+    const user = await User.findOneAndUpdate({ _id: req.params.id, country: req.country }, { $push: { adminNotes: { $each: [{ text: note, at: new Date() }], $position: 0 } } }, { new: true });
     if (!user) return customerNotFound(res);
     res.status(201).json({ success: true, data: user.adminNotes });
   } catch (error) {
@@ -530,7 +530,7 @@ exports.addCustomerNote = async (req, res, next) => {
 
 exports.deleteCustomerNote = async (req, res, next) => {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, { $pull: { adminNotes: { _id: req.params.noteId } } }, { new: true });
+    const user = await User.findOneAndUpdate({ _id: req.params.id, country: req.country }, { $pull: { adminNotes: { _id: req.params.noteId } } }, { new: true });
     if (!user) return customerNotFound(res);
     res.json({ success: true, data: user.adminNotes });
   } catch (error) {
@@ -541,7 +541,7 @@ exports.deleteCustomerNote = async (req, res, next) => {
 // Fix a customer's profile details (name, phone, city, address).
 exports.updateCustomer = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findOne({ _id: req.params.id, country: req.country });
     if (!user) return customerNotFound(res);
 
     const changed = [];
@@ -563,7 +563,7 @@ exports.updateCustomer = async (req, res, next) => {
 // Permanent. Refused while the customer has bookings that are still going ahead.
 exports.deleteCustomer = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findOne({ _id: req.params.id, country: req.country });
     if (!user) return customerNotFound(res);
 
     const open = await Booking.countDocuments({ user: user._id, status: { $in: ['pending', 'confirmed', 'in_progress'] } });
@@ -585,7 +585,7 @@ exports.deleteCustomer = async (req, res, next) => {
 // One customer with their booking history, for the admin "user details" panel.
 exports.getCustomer = async (req, res, next) => {
   try {
-    const user = await releaseExpiredBlock(await User.findById(req.params.id));
+    const user = await releaseExpiredBlock(await User.findOne({ _id: req.params.id, country: req.country }));
     if (!user) {
       return res.status(404).json({ success: false, message: MESSAGES.auth.userNotFound });
     }

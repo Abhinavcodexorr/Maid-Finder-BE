@@ -136,14 +136,14 @@ exports.getAdminDashboard = async (req, res, next) => {
 
     let result;
     try {
-      [result] = await Provider.aggregate([{ $facet: facets }]);
+      [result] = await Provider.aggregate([{ $match: { country: req.country } }, { $facet: facets }]);
     } catch (error) {
       // An unknown time zone name is the only expected failure; retry in UTC.
       if (timezone === 'UTC') throw error;
       return exports.getAdminDashboard({ ...req, query: { ...req.query, tz: 'UTC' } }, res, next);
     }
 
-    const catalog = await Service.find().select('key name isActive').lean();
+    const catalog = await Service.find({ country: req.country }).select('key name isActive').lean();
     const byKey = new Map(catalog.map((s) => [s.key, s]));
 
     const stages = Object.fromEntries(APPLICATION_STATUS.map((name) => [name, 0]));

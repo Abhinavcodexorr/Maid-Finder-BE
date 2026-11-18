@@ -195,6 +195,8 @@ const providerSchema = new mongoose.Schema(
       min: [1, 'Service radius must be at least 1 km'],
       max: [500, 'Service radius cannot exceed 500 km'],
     },
+    // Which country this belongs to (see config/countries.js). Admins only ever see their selected country.
+    country: { type: String, uppercase: true, trim: true, default: 'IN', index: true },
     isActive: {
       type: Boolean,
       default: true,

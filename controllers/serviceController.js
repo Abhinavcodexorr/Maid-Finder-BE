@@ -1,5 +1,6 @@
 const Provider = require('../models/Provider');
 const Service = require('../models/Service');
+const publicCountry = require('../utils/publicCountry');
 const MESSAGES = require('../config/errorMessages.json');
 const formatMessage = require('../utils/formatMessage');
 
@@ -10,8 +11,9 @@ const slugify = (value) =>
     .replace(/^-+|-+$/g, '');
 
 // How many providers reference each category id (and how many of those are approved).
-const providerCountsByKey = async () => {
+const providerCountsByKey = async (country) => {
   const rows = await Provider.aggregate([
+    { $match: { country } },
     { $unwind: '$categoryIds' },
     {
       $group: {
@@ -25,8 +27,8 @@ const providerCountsByKey = async () => {
 };
 
 // How many providers picked each sub-category key.
-const providerCountsBySubKey = async () => {
-  const rows = await Provider.aggregate([{ $unwind: '$subCategoryIds' }, { $group: { _id: '$subCategoryIds', total: { $sum: 1 } } }]);
+const providerCountsBySubKey = async (country) => {
+  const rows = await Provider.aggregate([{ $match: { country } }, { $unwind: '$subCategoryIds' }, { $group: { _id: '$subCategoryIds', total: { $sum: 1 } } }]);
   return new Map(rows.map((row) => [row._id, row.total]));
 };
 
@@ -80,7 +82,7 @@ const notFound = (res) => res.status(404).json({ success: false, message: MESSAG
 // Public: what the apps should offer. Inactive services are hidden.
 exports.listPublicServices = async (req, res, next) => {
   try {
-    const services = await Service.find({ isActive: true }).sort({ name: 1 }).collation({ locale: 'en' });
+    const services = await Service.find({ country: publicCountry(req), isActive: true }).sort({ name: 1 }).collation({ locale: 'en' });
     res.json({
       success: true,
       count: services.length,
@@ -104,9 +106,9 @@ exports.listPublicServices = async (req, res, next) => {
 exports.listServices = async (req, res, next) => {
   try {
     const [services, counts, subCounts] = await Promise.all([
-      Service.find().sort({ name: 1 }).collation({ locale: 'en' }),
-      providerCountsByKey(),
-      providerCountsBySubKey(),
+      Service.find({ country: req.country }).sort({ name: 1 }).collation({ locale: 'en' }),
+      providerCountsByKey(req.country),
+      providerCountsBySubKey(req.country),
     ]);
     const known = new Set(services.map((s) => s.key));
     const detected = [...counts.entries()]
@@ -145,6 +147,7 @@ exports.createService = async (req, res, next) => {
     }
 
     const service = await Service.create({
+      country: req.country,
       key,
       name,
       ...(subCategories && { subCategories }),
@@ -153,7 +156,7 @@ exports.createService = async (req, res, next) => {
       ...(imageUrl !== undefined && { imageUrl }),
       ...(isActive !== undefined && { isActive: Boolean(isActive) }),
     });
-    res.status(201).json({ success: true, data: serialize(service, await providerCountsByKey(), await providerCountsBySubKey()) });
+    res.status(201).json({ success: true, data: serialize(service, await providerCountsByKey(req.country), await providerCountsBySubKey(req.country)) });
   } catch (error) {
     if (error.code === 11000) {
       // A key made from the name clashing is, from the admin's side, a name clash.
@@ -167,7 +170,7 @@ exports.createService = async (req, res, next) => {
 // The key is intentionally not editable (providers reference it).
 exports.updateService = async (req, res, next) => {
   try {
-    const service = await Service.findById(req.params.id);
+    const service = await Service.findOne({ _id: req.params.id, country: req.country });
     if (!service) return notFound(res);
 
     ['name', 'description', 'icon', 'imageUrl'].forEach((field) => {
@@ -181,7 +184,7 @@ exports.updateService = async (req, res, next) => {
 
       // A sub-category providers already picked can be switched off but not removed.
       const kept = new Set(next.map((s) => s.key));
-      const subCounts = await providerCountsBySubKey();
+      const subCounts = await providerCountsBySubKey(req.country);
       const blocked = service.subCategories.find((s) => !kept.has(s.key) && (subCounts.get(s.key) ?? 0) > 0);
       if (blocked) {
         return res.status(409).json({
@@ -193,7 +196,7 @@ exports.updateService = async (req, res, next) => {
     }
 
     await service.save();
-    res.json({ success: true, data: serialize(service, await providerCountsByKey(), await providerCountsBySubKey()) });
+    res.json({ success: true, data: serialize(service, await providerCountsByKey(req.country), await providerCountsBySubKey(req.country)) });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).json({ success: false, message: MESSAGES.service.nameTaken });
@@ -204,9 +207,9 @@ exports.updateService = async (req, res, next) => {
 
 const setActive = (isActive) => async (req, res, next) => {
   try {
-    const service = await Service.findByIdAndUpdate(req.params.id, { isActive }, { new: true });
+    const service = await Service.findOneAndUpdate({ _id: req.params.id, country: req.country }, { isActive }, { new: true });
     if (!service) return notFound(res);
-    res.json({ success: true, data: serialize(service, await providerCountsByKey(), await providerCountsBySubKey()) });
+    res.json({ success: true, data: serialize(service, await providerCountsByKey(req.country), await providerCountsBySubKey(req.country)) });
   } catch (error) {
     next(error);
   }
@@ -219,10 +222,10 @@ exports.deactivateService = setActive(false);
 // category that no longer exists, so that case is refused: deactivate instead.
 exports.deleteService = async (req, res, next) => {
   try {
-    const service = await Service.findById(req.params.id);
+    const service = await Service.findOne({ _id: req.params.id, country: req.country });
     if (!service) return notFound(res);
 
-    const inUse = await Provider.countDocuments({ categoryIds: service.key });
+    const inUse = await Provider.countDocuments({ country: req.country, categoryIds: service.key });
     if (inUse > 0) {
       return res.status(409).json({
         success: false,

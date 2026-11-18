@@ -1,4 +1,5 @@
 const Plan = require('../models/Plan');
+const publicCountry = require('../utils/publicCountry');
 const MESSAGES = require('../config/errorMessages.json');
 
 const serialize = (plan) => {
@@ -13,7 +14,7 @@ const WRITABLE_FIELDS = ['name', 'description', 'price', 'originalPrice', 'durat
 // Public: what the pricing page should offer. Inactive plans are hidden.
 exports.listPublicPlans = async (req, res, next) => {
   try {
-    const plans = await Plan.find({ isActive: true }).sort({ sortOrder: 1, price: 1 });
+    const plans = await Plan.find({ country: publicCountry(req), isActive: true }).sort({ sortOrder: 1, price: 1 });
     res.json({ success: true, count: plans.length, data: plans.map(serialize) });
   } catch (error) {
     next(error);
@@ -23,7 +24,7 @@ exports.listPublicPlans = async (req, res, next) => {
 // Admin: every plan, active or not.
 exports.listPlans = async (req, res, next) => {
   try {
-    const plans = await Plan.find().sort({ sortOrder: 1, price: 1 });
+    const plans = await Plan.find({ country: req.country }).sort({ sortOrder: 1, price: 1 });
     res.json({
       success: true,
       count: plans.length,
@@ -54,7 +55,7 @@ exports.createPlan = async (req, res, next) => {
     });
     if (req.body.isActive !== undefined) payload.isActive = Boolean(req.body.isActive);
 
-    const plan = await Plan.create(payload);
+    const plan = await Plan.create({ ...payload, country: req.country });
     res.status(201).json({ success: true, data: serialize(plan) });
   } catch (error) {
     if (error.name === 'ValidationError') {
@@ -66,7 +67,7 @@ exports.createPlan = async (req, res, next) => {
 
 exports.updatePlan = async (req, res, next) => {
   try {
-    const plan = await Plan.findById(req.params.id);
+    const plan = await Plan.findOne({ _id: req.params.id, country: req.country });
     if (!plan) return notFound(res);
 
     WRITABLE_FIELDS.forEach((field) => {
@@ -86,7 +87,7 @@ exports.updatePlan = async (req, res, next) => {
 
 const setActive = (isActive) => async (req, res, next) => {
   try {
-    const plan = await Plan.findByIdAndUpdate(req.params.id, { isActive }, { new: true, runValidators: true });
+    const plan = await Plan.findOneAndUpdate({ _id: req.params.id, country: req.country }, { isActive }, { new: true, runValidators: true });
     if (!plan) return notFound(res);
     res.json({ success: true, data: serialize(plan) });
   } catch (error) {
@@ -99,7 +100,7 @@ exports.deactivatePlan = setActive(false);
 
 exports.deletePlan = async (req, res, next) => {
   try {
-    const plan = await Plan.findById(req.params.id);
+    const plan = await Plan.findOne({ _id: req.params.id, country: req.country });
     if (!plan) return notFound(res);
     await plan.deleteOne();
     res.json({ success: true, data: { id: req.params.id } });

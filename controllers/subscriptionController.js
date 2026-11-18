@@ -131,14 +131,15 @@ const createSubscription = async (userId, plan, { paymentRef, source }) => {
   return sub;
 };
 
-const findActivePlan = async (planIdentifier) => {
+// A plan can only be bought/granted by a customer in the same country as the plan.
+const findActivePlan = async (planIdentifier, country) => {
   if (!planIdentifier) return null;
   const raw = String(planIdentifier).trim();
   if (/^[0-9a-fA-F]{24}$/.test(raw)) {
-    const plan = await Plan.findById(raw);
+    const plan = await Plan.findOne({ _id: raw, country });
     if (plan) return plan;
   }
-  const planByName = await Plan.findOne({ name: new RegExp(`^${raw}$`, 'i') });
+  const planByName = await Plan.findOne({ country, name: new RegExp(`^${raw}$`, 'i') });
   if (planByName) return planByName;
   return null;
 };
@@ -156,7 +157,7 @@ exports.subscribe = async (req, res, next) => {
       req.body.planName ||
       req.body.name;
 
-    const plan = await findActivePlan(planIdentifier);
+    const plan = await findActivePlan(planIdentifier, req.user?.country);
     if (!plan) return res.status(404).json({ success: false, message: MESSAGES.subscription.planUnavailable });
 
     const userId = req.user?._id || req.user?.id;
@@ -193,7 +194,7 @@ exports.getMySubscription = async (req, res, next) => {
 // Admin: give a customer a plan (support, goodwill, testing).
 exports.grantSubscription = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findOne({ _id: req.params.id, country: req.country });
     if (!user) return res.status(404).json({ success: false, message: MESSAGES.auth.userNotFound });
 
     const planIdentifier =
@@ -205,7 +206,7 @@ exports.grantSubscription = async (req, res, next) => {
       req.body.planName ||
       req.body.name;
 
-    const plan = await findActivePlan(planIdentifier);
+    const plan = await findActivePlan(planIdentifier, user.country);
     if (!plan) return res.status(404).json({ success: false, message: MESSAGES.subscription.planUnavailable });
 
     const sub = await createSubscription(user._id, plan, { paymentRef: req.body.paymentRef, source: 'admin' });
@@ -292,7 +293,7 @@ exports.listAllSubscriptionsAdmin = async (req, res, next) => {
 // Admin: get single customer subscriptions
 exports.getCustomerSubscriptionsAdmin = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findOne({ _id: req.params.id, country: req.country });
     if (!user) return res.status(404).json({ success: false, message: MESSAGES.auth.userNotFound });
 
     const summaryMap = await summariesFor([user._id]);

@@ -40,6 +40,8 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // Which country this belongs to (see config/countries.js). Admins only ever see their selected country.
+    country: { type: String, uppercase: true, trim: true, default: 'IN', index: true },
     // false = blocked/deactivated: the account can no longer sign in or use the app.
     isActive: {
       type: Boolean,

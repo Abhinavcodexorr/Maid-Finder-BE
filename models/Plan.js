@@ -6,6 +6,8 @@ const mongoose = require('mongoose');
 // the admin ordered them.
 const planSchema = new mongoose.Schema(
   {
+    // Which country this belongs to (see config/countries.js). Admins only ever see their selected country.
+    country: { type: String, uppercase: true, trim: true, default: 'IN', index: true },
     name: {
       type: String,
       required: [true, 'Plan name is required'],
@@ -63,6 +65,6 @@ planSchema.pre('validate', function (next) {
   next();
 });
 
-planSchema.index({ isActive: 1, sortOrder: 1 });
+planSchema.index({ country: 1, isActive: 1, sortOrder: 1 });
 
 module.exports = mongoose.model('Plan', planSchema, 'plans');

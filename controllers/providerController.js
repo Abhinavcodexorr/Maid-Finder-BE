@@ -8,6 +8,7 @@ const MESSAGES = require('../config/errorMessages.json');
 const formatMessage = require('../utils/formatMessage');
 const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
 const normalizeStay = require('../utils/normalizeStay');
+const publicCountry = require('../utils/publicCountry');
 const { generateOtp, deliverOtp } = require('../utils/otp');
 const { OTP_EXPIRY_MS, OTP_RESEND_COOLDOWN_MS } = require('../config/constants');
 
@@ -157,6 +158,7 @@ exports.verifyOtp = async (req, res, next) => {
       provider = await Provider.create({
         mobileNumber,
         countryCode,
+        country: publicCountry(req),
         applicationStatus: 'pending',
       });
     }
@@ -324,7 +326,7 @@ exports.register = async (req, res, next) => {
       });
       await provider.save();
     } else {
-      provider = await Provider.create({ ...fields, applicationStatus: 'pending' });
+      provider = await Provider.create({ ...fields, country: publicCountry(req), applicationStatus: 'pending' });
     }
 
     const token = generateToken(provider._id, 'provider');
@@ -859,7 +861,7 @@ exports.updateProvider = async (req, res, next) => {
 exports.listProviders = async (req, res, next) => {
   try {
     const { emirate, categoryId, minSalary, maxSalary, skills, page = 1, limit = 10 } = req.query;
-    const query = { isActive: { $ne: false } };
+    const query = { isActive: { $ne: false }, country: publicCountry(req) };
 
     if (emirate) query.emirate = new RegExp(emirate, 'i');
     if (categoryId) {

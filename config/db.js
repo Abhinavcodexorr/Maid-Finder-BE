@@ -8,6 +8,7 @@ const connectDB = async () => {
       serverSelectionTimeoutMS: 10000,
     });
     console.log(`MongoDB Connected: ${conn.connection.host}`);
+    await require('../utils/ensureCountries')().catch((error) => console.error('Country set-up failed:', error.message));
   } catch (error) {
     console.error('MongoDB Connection Error:', error.message);
     console.error('Tip: Use mongodb://127.0.0.1:27017/maidfinder for local MongoDB, or MongoDB Atlas for cloud.');

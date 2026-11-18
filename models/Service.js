@@ -6,6 +6,8 @@ const { SERVICE_ICONS } = require('../config/constants');
 // the key is immutable: renaming a service must never orphan its providers.
 const serviceSchema = new mongoose.Schema(
   {
+    // Which country this belongs to (see config/countries.js). Admins only ever see their selected country.
+    country: { type: String, uppercase: true, trim: true, default: 'IN', index: true },
     key: {
       type: String,
       required: [true, 'Service key is required'],
@@ -61,9 +63,10 @@ const serviceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-serviceSchema.index({ key: 1 }, { unique: true });
+// A key (and a name) is unique within a country, so India and Australia can each have "Cook".
+serviceSchema.index({ country: 1, key: 1 }, { unique: true });
 // Names are unique ignoring case ("Cook" and "cook" are the same service).
-serviceSchema.index({ name: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
+serviceSchema.index({ country: 1, name: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
 serviceSchema.index({ isActive: 1 });
 
 module.exports = mongoose.model('Service', serviceSchema, 'services');
