@@ -9,6 +9,7 @@ const formatMessage = require('../utils/formatMessage');
 const normalizeCategoryIds = require('../utils/normalizeCategoryIds');
 const normalizeStay = require('../utils/normalizeStay');
 const publicCountry = require('../utils/publicCountry');
+const { COUNTRIES } = require('../config/countries');
 const { generateOtp, deliverOtp } = require('../utils/otp');
 const { OTP_EXPIRY_MS, OTP_RESEND_COOLDOWN_MS } = require('../config/constants');
 
@@ -590,6 +591,12 @@ exports.completeProfile = async (req, res, next) => {
     if (aadhaarNumber !== undefined) provider.aadhaarNumber = aadhaarNumber;
     const state = getVal(generalInfo, 'state');
     if (state !== undefined) provider.state = state;
+    // The registration form's Country field. Only countries the platform runs in are accepted.
+    const countryInput = getVal(generalInfo, 'country');
+    if (countryInput !== undefined) {
+      const code = String(countryInput).trim().toUpperCase();
+      if (COUNTRIES.some((c) => c.code === code)) provider.country = code;
+    }
     const pincode = getVal(generalInfo, 'pincode');
     if (pincode !== undefined) provider.pincode = pincode;
     const latitude = Number(getVal(generalInfo, 'latitude'));
