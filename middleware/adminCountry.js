@@ -19,6 +19,12 @@ const adminCountry = async (req, res, next) => {
     if (!(await activeCodes()).has(raw)) {
       return res.status(400).json({ success: false, message: 'Unknown or inactive country' });
     }
+    // A subadmin may only work in the countries they were given.
+    const allowed = req.admin ? req.admin.countries : ['*'];
+    if (!allowed.includes('*') && !allowed.includes(raw)) {
+      req.auditDenied = `No access to country ${raw}`;
+      return res.status(403).json({ success: false, code: 'FORBIDDEN_COUNTRY', message: "You don't have access to this country." });
+    }
     req.country = raw;
     next();
   } catch (error) {

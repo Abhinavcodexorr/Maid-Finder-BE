@@ -12,6 +12,12 @@ const adminUserSchema = new mongoose.Schema(
     role: { type: String, enum: ['superadmin', 'subadmin'], default: 'subadmin' },
     // Country codes this admin may use. Ignored for a superadmin (all countries).
     countries: { type: [String], default: [] },
+    // What a subadmin may do (see config/permissions.js). Left unset for admins created before
+    // permissions existed, who keep the "manager" set. Ignored for a superadmin.
+    permissions: { type: [String], default: undefined },
+    // Which ready-made role the permissions came from: manager | verifier | support | viewer | custom.
+    roleTemplate: { type: String, trim: true },
+    createdBy: { type: String, trim: true },
     isActive: { type: Boolean, default: true },
     lastLoginAt: { type: Date },
   },
